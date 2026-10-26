@@ -1,0 +1,28 @@
+# SNES ROM and build intermediates
+/breakout.sfc
+/breakout.sym
+/breakout.symfull
+/breakout.log
+/hdr.asm
+/linkfile
+*.obj
+*.ps
+*.dbg
+/src/game.asm
+/src/main.asm
+
+# Converted graphics (regenerated from sprites.png)
+/sprites.pic
+/sprites.pal
+/sprites.inc
+/sprites_data.as
+
+# Native test binaries and Python caches
+/build/
+__pycache__/
+*.py[cod]
+
+# Local editor and operating-system files
+/.vscode/
+.DS_Store
+Thumbs.db

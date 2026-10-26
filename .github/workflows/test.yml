@@ -1,0 +1,22 @@
+name: Gameplay tests
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  gameplay:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile gameplay tests
+        run: |
+          mkdir -p build
+          cc -std=c89 -pedantic -Wall -Wextra -Werror -Isrc \
+            tests/test_game.c src/game.c -o build/test_game
+      - name: Run gameplay tests
+        run: ./build/test_game
