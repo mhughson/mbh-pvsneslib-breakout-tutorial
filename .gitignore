@@ -22,6 +22,10 @@
 __pycache__/
 *.py[cod]
 
+# Project-local PVSnesLib SDK
+/vendor/pvsneslib/*
+!/vendor/pvsneslib/README.md
+
 # Local editor and operating-system files
 /.vscode/
 .DS_Store

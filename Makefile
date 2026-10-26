@@ -1,5 +1,7 @@
-ifeq ($(strip $(PVSNESLIB_HOME)),)
-$(error Set PVSNESLIB_HOME to your PVSnesLib 4.6.0 installation)
+export PVSNESLIB_HOME ?= $(CURDIR)/vendor/pvsneslib
+
+ifeq ($(wildcard $(PVSNESLIB_HOME)/devkitsnes/snes_rules),)
+$(error PVSnesLib 4.6.0 not found at $(PVSNESLIB_HOME). Extract the SDK into vendor/pvsneslib or set PVSNESLIB_HOME)
 endif
 
 export ROMNAME := breakout

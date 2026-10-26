@@ -29,8 +29,10 @@ important pieces; the linked source files are the complete, buildable program.
 
 ## Quick start
 
-Already have PVSnesLib 4.6.0 installed and `PVSNESLIB_HOME` configured? Open this
-repository in your build terminal (MSYS2 UCRT64 on Windows), then run:
+Unpack the PVSnesLib 4.6.0 release for your operating system into
+`vendor/pvsneslib` inside this repository (see step 1 below). No SDK environment
+variable is required. Open the repository in your build terminal (MSYS2 UCRT64
+on Windows), then run:
 
 ```sh
 make
@@ -40,8 +42,9 @@ Open the generated `breakout.sfc` in your emulator. Use Left/Right to move and
 B or Start to launch. The ROM and intermediate files are intentionally ignored
 by Git; the repository contains the source needed to rebuild them.
 
-No SDK binaries are bundled. If this is your first SNES project, start with
-step 1 below instead.
+SDK files are ignored by Git; SDK binaries are not checked into the repository.
+A [setup README](vendor/pvsneslib/README.md) keeps the SDK directory visible in
+fresh checkouts. If this is your first SNES project, start with step 1 below.
 
 ## Tutorial contents
 
@@ -90,33 +93,41 @@ system the shell utilities it expects. You can still edit the code in VS Code.
    pacman -S make
    ```
 
-4. Extract PVSnesLib so that the directory
-   `C:\snesdev\pvsneslib` contains the three directories named `devkitsnes`,
-   `pvsneslib`, and `snes-examples`.
-5. In the **MSYS2 UCRT64 terminal**, enter:
+4. Clone or download this repository if you have not already. Download the
+    **Windows release archive**, not GitHub's source-code archive. Extract its
+    `pvsneslib` folder into the repository's `vendor` directory, so that
+    `vendor/pvsneslib` contains the three directories named `devkitsnes`,
+    `pvsneslib`, and `snes-examples`.
 
-   ```sh
-   export PVSNESLIB_HOME="$(cygpath -u 'C:\snesdev\pvsneslib')"
-   ```
+Keep the project and SDK paths free of spaces. The Makefile finds the local SDK
+automatically, so you do not need to set `PVSNESLIB_HOME` in your terminal.
+Moving the whole project, including `vendor/pvsneslib`, keeps this setup working.
 
-Keep the installation and project paths free of spaces. Use the simple location
-above rather than a directory with a complicated MSYS2 mount mapping.
-`cygpath` translates the Windows path into the form the Makefiles require.
-This setting lasts for the current terminal session.
+An SDK installed elsewhere is still supported. Pass its path when building:
 
-On macOS or Linux, follow the corresponding environment setup in the official
-guide; the game source and Makefile are the same.
+```sh
+make PVSNESLIB_HOME=/c/snesdev/pvsneslib
+```
+
+On macOS or Linux, download the matching release archive and use the same
+`vendor/pvsneslib` layout. Follow the official guide for other prerequisites;
+the game source and Makefile are the same.
 
 ### Build the library's Hello World first
 
-Before touching our game, build the official example. On Windows:
+Before touching our game, build the official example. From the repository root
+in MSYS2 UCRT64:
 
 ```sh
-cd "$(cygpath -u 'C:\snesdev\pvsneslib\snes-examples\hello_world')"
-make
+make -C vendor/pvsneslib/snes-examples/hello_world \
+    PVSNESLIB_HOME="$(pwd)/vendor/pvsneslib"
 ```
 
-Open the resulting Hello World ROM in your emulator.
+The official example has its own Makefile, so we pass its SDK path as a Make
+argument rather than exporting an environment variable. Our game's Makefile
+already supplies this path automatically.
+
+Open the resulting Hello World ROM from the example directory in your emulator.
 
 **Checkpoint:** you should see the example's text on the screen. If this does not
 work, fix the installation before proceeding. Otherwise, an installation problem
@@ -203,8 +214,13 @@ mbh-pvsneslib-breakout-tutorial\
         test_game.c
     tools\
         make_sprites.py
+    vendor\
+        pvsneslib\
     screenshots\
 ```
+
+The `vendor/pvsneslib` directory contains a tracked setup README. Downloaded SDK
+files stay local and are ignored by Git.
 
 Their responsibilities are deliberately separated:
 
@@ -225,8 +241,10 @@ the presentation layer needs to know about PVSnesLib.
 Use the supplied [Makefile](Makefile):
 
 ```make
-ifeq ($(strip $(PVSNESLIB_HOME)),)
-$(error Set PVSNESLIB_HOME to your PVSnesLib 4.6.0 installation)
+export PVSNESLIB_HOME ?= $(CURDIR)/vendor/pvsneslib
+
+ifeq ($(wildcard $(PVSNESLIB_HOME)/devkitsnes/snes_rules),)
+$(error PVSnesLib 4.6.0 not found at $(PVSNESLIB_HOME). Extract the SDK into vendor/pvsneslib or set PVSNESLIB_HOME)
 endif
 
 export ROMNAME := breakout
@@ -253,6 +271,10 @@ clean: cleanBuildRes cleanRom cleanGfx
 The supplied library rules find our C and assembly sources, compile them, and
 link the result into the ROM. `ROMNAME` controls the output filename, while
 `ROMTITLE` sets the cartridge title.
+
+`PVSNESLIB_HOME` is now a Make variable with a project-local default. The `?=`
+allows a command-line or existing environment setting to override it, while
+`export` makes the resolved path available to SDK tools during the build.
 
 **Do not create your own ROM header for this project.** PVSnesLib 4.6.0 generates
 it from the Makefile settings. See the official [ROM-header guide][header].
@@ -828,10 +850,9 @@ every pixel movement can become the reason the game runs slowly.
 
 ## 14. Build and play your ROM
 
-In the same MSYS2 terminal where you set the environment variable:
+Open an MSYS2 UCRT64 terminal in the repository root, then run:
 
 ```sh
-cd "$(cygpath -u 'C:\snesdev\mbh-pvsneslib-breakout-tutorial')"
 make clean
 make
 ```
@@ -886,10 +907,10 @@ when available.
 
 | Symptom | Check |
 |---|---|
-| `PVSNESLIB_HOME` error | Set it in the terminal you are actually using. Point it at the outer installation directory, not its inner library directory. |
+| `PVSnesLib 4.6.0 not found` | Extract the release into `vendor/pvsneslib`. That directory must contain `devkitsnes`, `pvsneslib`, and `snes-examples`, not another outer SDK folder. An explicit `PVSNESLIB_HOME` override must also point at this outer SDK directory. |
 | Build cannot find shell utilities | On Windows, use the documented MSYS2 UCRT64 environment and install GNU Make. |
 | `missing separator` from Make | The graphics conversion recipe needs a tab, not spaces. |
-| A Windows library path looks malformed during linking | Keep the installation at a simple drive location such as `C:\snesdev\pvsneslib`; the Windows rules expect a drive-based MSYS path. |
+| A Windows library path looks malformed during linking | Keep the project and SDK paths free of spaces. The local default uses a drive-based MSYS path; explicit Windows overrides should use the same form, such as `/c/snesdev/pvsneslib`. |
 | You see old behavior | Rebuild and confirm that the emulator opened the new ROM, not an older copy elsewhere. |
 | The controller does nothing | Configure the emulator's first controller, give its window focus, and verify the frame loop still calls `WaitForVBlank`. |
 | Artwork is scrambled | Keep the sheet indexed, preserve tile order, and use the supplied converter options. |
