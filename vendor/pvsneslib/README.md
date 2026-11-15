@@ -1,5 +1,10 @@
 # Local PVSnesLib SDK
 
+This directory is only for building the finished reference game in this
+repository. To follow the [step-by-step tutorial](../../README.md), use your
+installed SDK and create an empty project in its `snes-examples/breakout`
+directory instead. You do not need a second SDK installation here.
+
 Download the [PVSnesLib 4.6.0 release](https://github.com/alekmaul/pvsneslib/releases/tag/4.6.0)
 for your operating system and extract it here. Use the release archive, not
 GitHub's source-code archive.

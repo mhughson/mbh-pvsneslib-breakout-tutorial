@@ -1,250 +1,143 @@
-# Make a Breakout-style SNES game with PVSnesLib
+# Write a Breakout-style SNES game with PVSnesLib
 
-## Who this tutorial is for
+This is a **build-it-yourself tutorial**, not a tour of a finished program.
+Start with an empty project inside your installed PVSnesLib folder. Write a
+little code, build it, try it, and then add the next feature.
 
-You know the basics of C: variables, functions, loops, arrays, pointers, and
-perhaps structs. You know what a Super Nintendo is, but have never programmed
-one. You do **not** need to know assembly, graphics registers, or cartridge
-hardware.
+You should know basic C: variables, functions, loops, arrays, pointers, and
+structs. You do not need assembly or prior SNES programming experience.
 
-We will make a small, complete game with:
+By the end you will have a paddle, a bouncing ball, fifty colored bricks,
+scoring, three lives, and win/game-over screens with restarting. This first
+version has one level and no sound. It is an original Breakout-style exercise.
 
-- A paddle controlled with the D-pad.
-- A ball that bounces off walls, bricks, and the paddle.
-- Fifty colored bricks, ten points per brick, and three lives.
-- A launch prompt, a game-over screen, a win screen, and restarting.
+![What we are working toward](screenshots/ready.png)
 
-The first version deliberately has one level and no sound. It is an original
-Breakout-style exercise, not a reproduction of Atari's program or artwork.
+## Tutorial versus finished reference
 
-![The finished game, waiting for a launch](screenshots/ready.png)
+**Do not copy this repository's `src` folder into your project.** It contains
+the finished reference game, not your starting point. You will create your own
+source files below. You only need the supplied [sprites.png](sprites.png)
+artwork and [third-party notices](THIRD_PARTY_NOTICES.txt) from this repository.
 
-**Version:** this project targets **PVSnesLib 4.6.0**. Older tutorials sometimes
-use different build steps. In particular, this version generates its ROM header
-automatically.
+The reference [main.c](src/main.c), [game.h](src/game.h), and
+[game.c](src/game.c) are available for comparison **after** you complete the
+steps. The repository's [Makefile](Makefile) builds that reference using a local
+SDK under `vendor/pvsneslib`; that is a separate convenience, not the learner's
+working directory or installation requirement.
 
-The complete source accompanies this tutorial. Read the steps in order, then
-open the linked files as each subsystem is introduced. The excerpts explain the
-important pieces; the linked source files are the complete, buildable program.
+## How to follow the code edits
 
-## Quick start
+Every step identifies the file to edit. When a whole file is given, create or
+replace that file. Later steps use **diff blocks with surrounding unchanged
+code**, so you can see exactly where an addition belongs:
 
-Unpack the PVSnesLib 4.6.0 release for your operating system into
-`vendor/pvsneslib` inside this repository (see step 1 below). No SDK environment
-variable is required. Open the repository in your build terminal (MSYS2 UCRT64
-on Windows), then run:
-
-```sh
-make
+```diff
+ int existing_line;
+-old_line();
++new_line();
+ next_existing_line();
 ```
 
-Open the generated `breakout.sfc` in your emulator. Use Left/Right to move and
-B or Start to launch. The ROM and intermediate files are intentionally ignored
-by Git; the repository contains the source needed to rebuild them.
+Keep the unmarked lines, remove lines starting with `-`, and add lines starting
+with `+`. Do not type those markers, the `---`/`+++` filenames, or the `@@`
+separators into your C files. Separate `@@` sections describe separate edits
+in the same file. A diff is an editing guide, not a complete file to paste.
 
-SDK files are ignored by Git; SDK binaries are not checked into the repository.
-A [setup README](vendor/pvsneslib/README.md) keeps the SDK directory visible in
-fresh checkouts. If this is your first SNES project, start with step 1 below.
+Follow the steps in order; each edit assumes the previous checkpoint is done.
+There are no omitted function bodies to retrieve from the finished source.
 
-## Tutorial contents
+## Contents
 
-1. [Install the tools](#1-install-the-tools-and-prove-that-they-work)
-2. [Understand the graphics](#2-learn-just-enough-snes-graphics-to-make-this-game)
-3. [Create the project](#3-create-the-project)
-4. [Prepare the artwork](#4-prepare-the-artwork)
-5. [Initialize the screen and sprites](#5-initialize-the-screen-and-sprites)
-6. [Store the game data](#6-store-the-game-as-ordinary-c-data)
-7. [Read the controller](#7-read-the-controller-and-move-the-paddle)
-8. [Launch the ball](#8-attach-and-launch-the-ball)
-9. [Build collisions](#9-build-collisions-from-rectangles)
-10. [Create and remove bricks](#10-create-hit-and-remove-the-bricks)
-11. [Bounce off the paddle](#11-bounce-off-the-top-of-the-paddle)
-12. [Handle lives and restarting](#12-handle-lives-winning-and-restarting)
-13. [Draw the HUD](#13-draw-the-hud-without-unnecessary-work)
-14. [Build and play](#14-build-and-play-your-rom)
-15. [Troubleshoot](#15-troubleshooting)
-16. [Extend the game](#16-extend-one-thing-at-a-time)
+1. [Create an empty project and display text](#1-create-an-empty-project-and-display-text)
+2. [Draw a paddle and move it](#2-draw-a-paddle-and-move-it)
+3. [Attach a ball and launch it](#3-attach-a-ball-and-launch-it)
+4. [Move the ball and bounce off walls](#4-move-the-ball-and-bounce-off-walls)
+5. [Bounce off the paddle](#5-bounce-off-the-paddle)
+6. [Add a wall of destructible bricks](#6-add-a-wall-of-destructible-bricks)
+7. [Add lives, winning, and restarting](#7-add-lives-winning-and-restarting)
+8. [Draw the score, lives, and prompts](#8-draw-the-score-lives-and-prompts)
+9. [Test the complete game](#9-test-the-complete-game)
 
-See also [running the gameplay tests](#running-the-gameplay-tests),
-[licensing](#licensing), and the [official references](#official-references).
+See also [troubleshooting](#troubleshooting),
+[gameplay tests](#running-the-gameplay-tests), [licensing](#licensing), and
+[official references](#official-references).
 
 ---
 
-## 1. Install the tools and prove that they work
+## 1. Create an empty project and display text
 
-PVSnesLib includes a C compiler, assembler, linker, graphics converter, and the
-library we will call from C.
+### Install and check PVSnesLib
 
-Follow the official [installation guide][installation] and download the
-[4.6.0 release][release] for your operating system. You also need a SNES emulator;
-[Mesen](https://www.mesen.ca/) is one option recommended by the installation
-guide. Configure its first controller so you can press the D-pad, B, and Start.
+This tutorial targets **PVSnesLib 4.6.0**. Follow its
+[installation guide][installation] and download the [release archive][release]
+for your operating system, not GitHub's source-code archive.
 
-### Windows setup
-
-Use **MSYS2 UCRT64**, as the official guide recommends. This gives the build
-system the shell utilities it expects. You can still edit the code in VS Code.
-
-1. Install MSYS2 using the instructions linked from the PVSnesLib guide.
-2. Update MSYS2, following any instructions to close and reopen its terminal.
-3. Install GNU Make if it is not already installed:
-
-   ```sh
-   pacman -S make
-   ```
-
-4. Clone or download this repository if you have not already. Download the
-    **Windows release archive**, not GitHub's source-code archive. Extract its
-    `pvsneslib` folder into the repository's `vendor` directory, so that
-    `vendor/pvsneslib` contains the three directories named `devkitsnes`,
-    `pvsneslib`, and `snes-examples`.
-
-Keep the project and SDK paths free of spaces. The Makefile finds the local SDK
-automatically, so you do not need to set `PVSNESLIB_HOME` in your terminal.
-Moving the whole project, including `vendor/pvsneslib`, keeps this setup working.
-
-An SDK installed elsewhere is still supported. Pass its path when building:
+On Windows, use **MSYS2 UCRT64** for the build commands, as recommended by the
+official guide. You can edit files in VS Code. Install Make if needed:
 
 ```sh
-make PVSNESLIB_HOME=/c/snesdev/pvsneslib
+pacman -S make
 ```
 
-On macOS or Linux, download the matching release archive and use the same
-`vendor/pvsneslib` layout. Follow the official guide for other prerequisites;
-the game source and Makefile are the same.
-
-### Build the library's Hello World first
-
-Before touching our game, build the official example. From the repository root
-in MSYS2 UCRT64:
-
-```sh
-make -C vendor/pvsneslib/snes-examples/hello_world \
-    PVSNESLIB_HOME="$(pwd)/vendor/pvsneslib"
-```
-
-The official example has its own Makefile, so we pass its SDK path as a Make
-argument rather than exporting an environment variable. Our game's Makefile
-already supplies this path automatically.
-
-Open the resulting Hello World ROM from the example directory in your emulator.
-
-**Checkpoint:** you should see the example's text on the screen. If this does not
-work, fix the installation before proceeding. Otherwise, an installation problem
-can look like a problem in your game.
-
-The official [Hello World walkthrough][hello] explains this first build.
-
----
-
-## 2. Learn just enough SNES graphics to make this game
-
-On a modern computer, you might draw a rectangle by coloring pixels in a screen
-buffer. That is not the normal way to draw a SNES game.
-
-For our purposes, think of the SNES as assembling the picture from small pieces:
-
-| Term | Meaning in this project |
-|---|---|
-| **Tile** | An 8-by-8-pixel piece of artwork. |
-| **Palette** | A table of colors. Artwork stores color numbers, not full RGB values. |
-| **Background** | A grid of tiles. We use one for text and the border. |
-| **Sprite** | A movable object made from tiles. The ball, paddle, and bricks use these. |
-| **VRAM** | The SNES graphics memory, where we load tiles and background maps. |
-| **OAM** | The hardware's table describing sprites: position, artwork, size, and palette. |
-| **VBlank** | The pause between drawing one screen and the next, when graphics updates can be transferred safely. |
-
-PVSnesLib hides most of the hardware details behind functions.
-
-We use a **256-by-224-pixel** screen. Coordinates start at the top-left:
+Keep the SDK and project paths free of spaces. We will use this installation
+as an example; substitute the location of **your existing installation**:
 
 ```text
-(0, 0) ----------------------> X increases
-|
-|
-v
-Y increases
+C:\snesdev\pvsneslib\
+    devkitsnes\
+    pvsneslib\
+    snes-examples\
 ```
 
-Thus, moving upward means subtracting from Y.
+The outer `pvsneslib` folder is the SDK root. The inner `pvsneslib` folder
+contains the library itself. Do not install another SDK inside this tutorial
+repository if you already have one.
 
-There are two coordinate systems to keep straight:
+The shell commands below use MSYS2's `/c/...` spelling for a Windows `C:\...`
+path. This is the spelling expected by PVSnesLib's Make rules, even on Windows.
+On Linux/macOS, substitute your installation's absolute path and follow the
+official guide for prerequisites.
 
-- Sprite positions are in **pixels**.
-- The text console uses **8-by-8 character cells**.
+First prove the toolchain works:
 
-For example, `consoleDrawText(2, 1, "HELLO")` starts at pixel position `(16, 8)`.
-
-### Our drawing plan
-
-- Background 0: score, lives, prompts, and a border made from `#` characters.
-- One 8-by-8 sprite: the ball.
-- Three 16-by-16 sprites: the paddle.
-- Fifty 16-by-16 sprites: the bricks.
-
-The paddle and brick artwork only fills the top eight pixels of its 16-by-16
-sprite. The lower half is transparent. Their **collision rectangles** are
-therefore 8 pixels high, not 16.
-
-That gives us a 48-by-8 paddle and 16-by-8 bricks without requiring an unsupported
-16-by-8 hardware sprite size.
-
----
-
-## 3. Create the project
-
-Clone or download this repository into a space-free location. The examples use
-`C:\snesdev\mbh-pvsneslib-breakout-tutorial`; substitute your own checkout path
-when running the commands.
-
-The important files are:
-
-```text
-mbh-pvsneslib-breakout-tutorial\
-    README.md
-    Makefile
-    THIRD_PARTY_NOTICES.txt
-    sprites.png
-    src\
-        data.asm
-        game.h
-        game.c
-        main.c
-    tests\
-        test_game.c
-    tools\
-        make_sprites.py
-    vendor\
-        pvsneslib\
-    screenshots\
+```sh
+cd /c/snesdev/pvsneslib
+export PVSNESLIB_HOME="$(pwd)"
+make -C snes-examples/hello_world
 ```
 
-The `vendor/pvsneslib` directory contains a tracked setup README. Downloaded SDK
-files stay local and are ignored by Git.
+Open the example's generated ROM in a SNES emulator.
+[Mesen](https://www.mesen.ca/) is one option. Configure controller 1 for the
+D-pad, B, and Start.
 
-Their responsibilities are deliberately separated:
+**Checkpoint:** Hello World displays its text. Fix installation problems here,
+before writing the game. The official [Hello World walkthrough][hello] can help.
 
-| File | Responsibility |
-|---|---|
-| [Makefile](Makefile) | Convert the artwork and build the ROM. |
-| [sprites.png](sprites.png) | Our original, indexed-color sprite sheet. |
-| [data.asm](src/data.asm) | Include the converted graphics in the cartridge. |
-| [game.h](src/game.h) | Dimensions, game states, and the game-data struct. |
-| [game.c](src/game.c) | Movement, collisions, scoring, and lives. |
-| [main.c](src/main.c) | SNES setup, controller input, and drawing. |
+### Create your project inside the installation
 
-Keeping the rules in ordinary C makes them easier to understand and test. Only
-the presentation layer needs to know about PVSnesLib.
+From the SDK root, create a **new, empty** example directory:
 
-### The Makefile
+```sh
+mkdir -p snes-examples/breakout/src
+cd snes-examples/breakout
+```
 
-Use the supplied [Makefile](Makefile):
+If `breakout` already contains another project, use a different new directory
+name instead; do not overwrite it. Keep the same two-level nesting under the
+SDK root.
+
+Your working directory is now `C:\snesdev\pvsneslib\snes-examples\breakout`.
+Every subsequent `make` command is run **here**, not in this repository and
+not in the SDK root. You can open this new directory in VS Code.
+
+Create `Makefile` in that directory:
 
 ```make
-export PVSNESLIB_HOME ?= $(CURDIR)/vendor/pvsneslib
+export PVSNESLIB_HOME ?= $(abspath $(CURDIR)/../..)
 
 ifeq ($(wildcard $(PVSNESLIB_HOME)/devkitsnes/snes_rules),)
-$(error PVSnesLib 4.6.0 not found at $(PVSNESLIB_HOME). Extract the SDK into vendor/pvsneslib or set PVSNESLIB_HOME)
+$(error PVSnesLib not found at $(PVSNESLIB_HOME). Place this project in snes-examples/breakout or set PVSNESLIB_HOME)
 endif
 
 export ROMNAME := breakout
@@ -256,102 +149,111 @@ include $(PVSNESLIB_HOME)/devkitsnes/snes_rules
 
 all: $(ROMNAME).sfc
 
-sprites.pic: sprites.png
-	$(GFXCONV) -s 8 -R -o 16 -u 16 -p -t png -i $<
-
-src/data.obj: sprites.pic
-src/main.obj src/game.obj: src/game.h
-
 clean: cleanBuildRes cleanRom cleanGfx
 ```
 
-**Makefile trap:** the command beginning with `$(GFXCONV)` must start with a real
-**tab**, not spaces. Target lines such as `clean:` start at the left edge.
+There are no command recipes in this first Makefile; the SDK supplies them.
+The default SDK path goes up two directories from your new project. An existing
+environment variable or command-line setting overrides it. Thus `make` also works in a new terminal
+without exporting the variable again, provided your project is in this layout.
 
-The supplied library rules find our C and assembly sources, compile them, and
-link the result into the ROM. `ROMNAME` controls the output filename, while
-`ROMTITLE` sets the cartridge title.
+The SDK rules discover C and assembly files in `src`, compile them, and link a
+ROM. PVSnesLib 4.6.0 generates `hdr.asm` automatically; **do not write a custom
+ROM header**. See the [header guide][header].
 
-`PVSNESLIB_HOME` is now a Make variable with a project-local default. The `?=`
-allows a command-line or existing environment setting to override it, while
-`export` makes the resolved path available to SDK tools during the build.
+Create `src\main.c` with this entire program:
 
-**Do not create your own ROM header for this project.** PVSnesLib 4.6.0 generates
-it from the Makefile settings. See the official [ROM-header guide][header].
+```c
+#include <snes.h>
+
+int main(void)
+{
+    setScreenOff();
+    consoleInitDefaultText(0);
+    bgSetGfxPtr(0, 0x3000);
+    bgSetMapPtr(0, 0x6800, SC_32x32);
+    setMode(BG_MODE1, 0);
+    bgSetDisable(1);
+    bgSetDisable(2);
+    consoleDrawText(7, 12, "MY FIRST BREAKOUT");
+    setScreenOn();
+
+    while (1) {
+        WaitForVBlank();
+    }
+    return 0;
+}
+```
+
+Build:
+
+```sh
+make
+```
+
+Open **your new project's** `breakout.sfc` in the emulator.
+
+**Checkpoint:** a text-only screen says `MY FIRST BREAKOUT`. There is no
+paddle, ball, or game yet. You have built the first version yourself.
+
+### Just enough graphics terminology
+
+The SNES assembles its picture from tiles, rather than drawing arbitrary
+rectangles into a modern framebuffer:
+
+| Term | What we will use it for |
+|---|---|
+| Tile | An 8-by-8 piece of artwork. |
+| Palette | Colors selected by the artwork's color indices. |
+| Background | A tile grid; ours holds text and a border. |
+| Sprite | A movable object: paddle, ball, or brick. |
+| VRAM | Graphics memory holding tiles and background maps. |
+| OAM | The table of sprite positions, sizes, and artwork. |
+| VBlank | The pause between frames when the library transfers graphics updates. |
+
+Our screen is 256 by 224 pixels. X increases rightward; Y increases downward.
+Sprites use pixel coordinates, but console text uses 8-by-8 character cells.
+`consoleDrawText(2, 1, "HELLO")` starts at pixel `(16, 8)`.
 
 ---
 
-## 4. Prepare the artwork
+## 2. Draw a paddle and move it
 
-Use the supplied [sprite sheet](sprites.png) for the first build. No graphics
-editor or Python installation is required.
+### Add artwork, not finished game code
 
-It is a **128-by-16, 256-entry indexed PNG**. Only the first sixteen palette
-entries matter to our sprites.
+Copy only [sprites.png](sprites.png) into your new project's root. Also copy
+[THIRD_PARTY_NOTICES.txt](THIRD_PARTY_NOTICES.txt) there to preserve the notice
+for the PVSnesLib code/font that will be linked into the ROM.
 
-Across the top are:
+The original sheet is a 128-by-16 indexed PNG. Across the top are five brick
+colors, a paddle segment, and a ball. The lower eight rows are transparent.
+No graphics editor or Python installation is needed for this tutorial.
 
-```text
-red | orange | yellow | green | cyan | paddle | ball | unused
+Add the conversion rule to **your** `Makefile`, between `all` and `clean`:
+
+```diff
+--- a/Makefile
++++ b/Makefile
+@@
+ all: $(ROMNAME).sfc
+
++sprites.pic: sprites.png
++	$(GFXCONV) -s 8 -R -o 16 -u 16 -p -t png -i $<
++
++src/data.obj: sprites.pic
++
+ clean: cleanBuildRes cleanRom cleanGfx
 ```
 
-Each section is 16 pixels wide. The lower eight rows are completely blank.
-Palette index 0 means transparent when used by a sprite.
+The new `$(GFXCONV)` command must start with a real **tab**, not spaces.
+The `clean` target still has no recipe of its own.
 
-The graphics converter creates two binary files:
+The converter writes `sprites.pic` (1,024 bytes of tile data) and `sprites.pal`
+(32 bytes of palette data). `-R` preserves tile order, `-u 16` selects 4-bit
+pixels, `-o 16` outputs sixteen colors, and `-p` requests a palette.
+Do not deduplicate this sheet: our tile numbers depend on its layout.
 
-- Tile pixels in SNES format.
-- Sixteen SNES colors, using two bytes per color.
-
-The command in the Makefile means:
-
-| Option | Purpose |
-|---|---|
-| `-s 8` | Process the image as 8-by-8 tiles. |
-| `-R` | Keep tile positions instead of reducing duplicates. |
-| `-o 16` | Output sixteen palette colors. |
-| `-u 16` | Use sixteen colors: the SNES 4-bits-per-pixel format. |
-| `-p` | Include palette output. |
-| `-t png` | Read a PNG file. |
-
-Do not enable tile deduplication for this sheet. Our code deliberately refers to
-specific tile numbers.
-
-### Why those tile numbers matter
-
-There are sixteen 8-pixel tiles across a 128-pixel sheet:
-
-```text
-top row:       0  1  2  3  4  5  6  7  8  9 10 11 12 13 14 15
-bottom row:   16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31
-```
-
-A 16-by-16 sprite starting at tile 0 uses tiles **0, 1, 16, and 17**.
-The next brick color starts at tile 2, not tile 4.
-
-Consequently:
-
-| Artwork | Starting tile |
-|---|---:|
-| Red brick | 0 |
-| Orange brick | 2 |
-| Yellow brick | 4 |
-| Green brick | 6 |
-| Cyan brick | 8 |
-| Paddle segment | 10 |
-| Ball | 12 |
-
-There are 32 tiles, each taking 32 bytes in this format: **1,024 bytes** total.
-The palette is **32 bytes**.
-
-The converter's official [option reference][gfx] describes these settings.
-The optional [asset-generation script](tools/make_sprites.py) lets you regenerate
-the original sheet using Python's standard library, but is not part of a normal
-build.
-
-### Include the graphics in the cartridge
-
-Copy [data.asm](src/data.asm):
+Create `src\data.asm`:
 
 ```asm
 .include "hdr.asm"
@@ -367,242 +269,533 @@ sprite_palette:
 .ends
 ```
 
-You do not need to learn assembly to use this. The two labels give the binary
-data names that our C code can reference.
+These labels let C refer to the binary graphics. The Makefile dependency ensures
+conversion happens before this file is assembled.
 
-The Makefile makes this assembly file's object depend on graphics conversion.
-That is important: it prevents the assembler from trying to include artwork
-before the converter has created it.
+### Keep gameplay separate from SNES drawing
 
----
-
-## 5. Initialize the screen and sprites
-
-Open [main.c](src/main.c), starting with `init_video`.
-
-The library's startup code initializes the console before entering `main`.
-We first keep the screen blank while loading our graphics:
+Create `src\game.h`. For now, the game contains **only a paddle position**:
 
 ```c
-setScreenOff();
-consoleInitDefaultText(0);
-bgSetGfxPtr(0, 0x3000);
-bgSetMapPtr(0, 0x6800, SC_32x32);
-oamInitGfxSet(sprite_tiles, 1024, sprite_palette, 32,
-              0, 0x0000, OBJ_SIZE8_L16);
-```
+#ifndef BREAKOUT_GAME_H
+#define BREAKOUT_GAME_H
 
-Here is what matters:
+#define FIELD_LEFT 16
+#define FIELD_RIGHT 240
 
-- `consoleInitDefaultText(0)` loads the built-in font.
-- The next two calls position the text graphics and text map in VRAM.
-- `oamInitGfxSet` loads our sprite tiles and palette.
-- `OBJ_SIZE8_L16` selects a pair of hardware sprite sizes: 8-by-8 and 16-by-16.
+#define PADDLE_WIDTH 48
+#define PADDLE_HEIGHT 8
+#define PADDLE_Y 200
+#define PADDLE_SPEED 3
 
-The address constants are a small allocation plan, not magic drawing
-coordinates:
-
-| Data | VRAM word address |
-|---|---:|
-| Sprite graphics | `0x0000` |
-| Text graphics | `0x3000` |
-| Text map | `0x6800` |
-
-These do not overlap. These PVSnesLib VRAM arguments use **word addresses**;
-graphics upload lengths such as 1,024 are in **bytes**. Keep this plan unchanged
-for the first version.
-
-Next:
-
-```c
-setMode(BG_MODE1, 0);
-bgSetDisable(1);
-bgSetDisable(2);
-oamClear(0, 0);
-```
-
-Mode 1 is a normal tiled-background mode. We leave background 0 available for
-text, disable the other backgrounds used by this mode, and hide unused sprites.
-
-The ball is defined like this:
-
-```c
-oamSet(0, game.ball_x, game.ball_y, 3, 0, 0, 12, 0);
-oamSetEx(0, OBJ_SMALL, OBJ_SHOW);
-```
-
-The arguments to `oamSet` are:
-
-```text
-OAM offset, X, Y, priority, flip X, flip Y, starting tile, palette
-```
-
-Priority 3 puts our game sprites in front of ordinary background text.
-`OBJ_SMALL` means 8-by-8 because of the size pair selected earlier.
-For a paddle segment or brick, use `OBJ_LARGE`, meaning 16-by-16.
-
-**Important PVSnesLib convention:** these functions take an OAM **byte offset**,
-not just a sprite number. The first four sprite entries use offsets
-**0, 4, 8, and 12**.
-
-Our ball uses entry 0, the paddle uses entries 1 through 3, and the bricks use
-entries 4 through 53.
-
-Finally, call `setScreenOn()` after the first scene has been prepared.
-The [sprite API documentation][sprites] is the reference for these functions.
-
----
-
-## 6. Store the game as ordinary C data
-
-Open [game.h](src/game.h).
-
-The `Game` struct holds everything needed to describe a play session:
-
-```c
 typedef struct Game {
     int paddle_x;
-    int ball_x;
-    int ball_y;
-    int vx;
-    int vy;
-    unsigned int score;
-    int lives;
-    int bricks_left;
-    int state;
-    unsigned char bricks[BRICK_COUNT];
 } Game;
+
+void game_reset(Game *game);
+void game_tick(Game *game, int movement, int action_pressed);
+
+#endif
 ```
 
-`vx` and `vy` are the ball's horizontal and vertical velocities.
-A positive `vy` moves downward.
-
-Each element of `bricks` is 1 when the brick exists and 0 after it is destroyed.
-The constants define a ten-column, five-row wall.
-
-The playfield extends from X 16 to X 240, excluding the right-hand edge.
-The top wall ends at Y 32. The paddle sits at Y 200.
-
-We also define four states:
+Create `src\game.c`:
 
 ```c
-enum GameState {
-    STATE_READY,
-    STATE_PLAYING,
-    STATE_GAME_OVER,
-    STATE_WON
-};
-```
+#include "game.h"
 
-This is clearer than a collection of loosely related flags such as
-`ball_is_moving`, `is_dead`, and `has_won`.
+void game_reset(Game *game)
+{
+    game->paddle_x = (FIELD_LEFT + FIELD_RIGHT - PADDLE_WIDTH) / 2;
+}
 
-The game's `game_reset` function sets every field, restores all fifty bricks,
-sets three lives and zero points, and enters `STATE_READY`.
-
-Use signed values for positions and velocities. With unsigned values,
-subtracting from zero can wrap around to a very large positive number.
-All our values are small enough for the SNES compiler's 16-bit `int`.
-
----
-
-## 7. Read the controller and move the paddle
-
-The main loop in [main.c](src/main.c) does three things:
-
-1. Wait for the next frame.
-2. Read input and update the game.
-3. Prepare the next picture.
-
-Its essential structure is:
-
-```c
-while (1) {
-    WaitForVBlank();
-    held = padsCurrent(0);
-    pressed = padsDown(0);
-    movement = 0;
-    if (held & KEY_LEFT)
-        --movement;
-    if (held & KEY_RIGHT)
-        ++movement;
-    game_tick(&game, movement, pressed & (KEY_B | KEY_START));
-    draw_game();
+void game_tick(Game *game, int movement, int action_pressed)
+{
+    (void)action_pressed;
+    game->paddle_x += movement * PADDLE_SPEED;
+    if (game->paddle_x < FIELD_LEFT)
+        game->paddle_x = FIELD_LEFT;
+    if (game->paddle_x + PADDLE_WIDTH > FIELD_RIGHT)
+        game->paddle_x = FIELD_RIGHT - PADDLE_WIDTH;
 }
 ```
 
-Controller 0 is the first player.
+`movement` will be -1, 0, or 1. The unused action parameter is reserved for
+launching in the next step. Signed positions allow subtraction without unsigned
+wraparound; our values fit the SNES compiler's 16-bit `int`.
 
-- `padsCurrent(0)` reports buttons currently held down. Use it for movement.
-- `padsDown(0)` reports buttons newly pressed this frame. Use it for launching
-  and restarting.
-- The bitwise `&` tests a button flag.
-- Pressing Left and Right together produces movement 0.
+Add the header dependency to your `Makefile`:
 
-Inside `game_tick`, movement becomes:
+```diff
+--- a/Makefile
++++ b/Makefile
+@@
+ src/data.obj: sprites.pic
++src/main.obj src/game.obj: src/game.h
 
-```c
-game->paddle_x += movement * PADDLE_SPEED;
-if (game->paddle_x < FIELD_LEFT)
-    game->paddle_x = FIELD_LEFT;
-if (game->paddle_x + PADDLE_WIDTH > FIELD_RIGHT)
-    game->paddle_x = FIELD_RIGHT - PADDLE_WIDTH;
+ clean: cleanBuildRes cleanRom cleanGfx
 ```
 
-Clamping the paddle prevents it from leaving the playfield.
+Now replace the text-only `src\main.c` with this complete paddle version:
 
-### What VBlank is doing for us
+```c
+#include <snes.h>
+#include "game.h"
 
-PVSnesLib keeps sprite descriptions in a RAM buffer and transfers completed
-sprite data to hardware during its VBlank handling. The default console handling
-also transfers dirty text data. Our drawing functions prepare those buffers;
-they are not painting pixels directly onto the display.
+extern u8 sprite_tiles[];
+extern u8 sprite_palette[];
 
-Do not add an `oamUpdate()` call in the middle of the loop. Do not replace the
-frame wait with an arbitrary delay.
+Game game;
 
-Controller input is also refreshed by the library's VBlank handling. A loop
-waiting for input must continue calling `WaitForVBlank`; otherwise, it can keep
-checking input that never changes.
+static void draw_game(void)
+{
+    int i;
 
-See the official [input][input] and [interrupt][interrupts] documentation.
+    for (i = 0; i < 3; ++i)
+        oamSetXY((i + 1) * 4, game.paddle_x + i * 16, PADDLE_Y);
+}
 
-**Checkpoint:** before concentrating on ball physics, run the complete project
-and leave the ball unlaunched. Move the paddle from wall to wall. The ball should
-stay attached to its center.
+static void init_video(void)
+{
+    int row;
+    int i;
+
+    setScreenOff();
+    consoleInitDefaultText(0);
+    bgSetGfxPtr(0, 0x3000);
+    bgSetMapPtr(0, 0x6800, SC_32x32);
+    oamInitGfxSet(sprite_tiles, 1024, sprite_palette, 32,
+                  0, 0x0000, OBJ_SIZE8_L16);
+
+    setMode(BG_MODE1, 0);
+    bgSetDisable(1);
+    bgSetDisable(2);
+    oamClear(0, 0);
+    for (i = 0; i < 3; ++i) {
+        oamSet((i + 1) * 4, game.paddle_x + i * 16, PADDLE_Y,
+               3, 0, 0, 10, 0);
+        oamSetEx((i + 1) * 4, OBJ_LARGE, OBJ_SHOW);
+    }
+
+    consoleDrawText(1, 3, "##############################");
+    for (row = 4; row < 28; ++row) {
+        consoleDrawText(1, row, "#");
+        consoleDrawText(30, row, "#");
+    }
+    draw_game();
+    setScreenOn();
+}
+
+int main(void)
+{
+    u16 held;
+    u16 pressed;
+    int movement;
+
+    game_reset(&game);
+    init_video();
+
+    while (1) {
+        WaitForVBlank();
+        held = padsCurrent(0);
+        pressed = padsDown(0);
+        movement = 0;
+        if (held & KEY_LEFT)
+            --movement;
+        if (held & KEY_RIGHT)
+            ++movement;
+        game_tick(&game, movement, pressed & (KEY_B | KEY_START));
+        draw_game();
+    }
+    return 0;
+}
+```
+
+The paddle is three 16-by-16 sprites. Only their top eight pixels are visible,
+so its collision rectangle will be 48 by 8. The SNES does not offer a 16-by-8
+hardware sprite size.
+
+`oamSet` takes an OAM **byte offset**, X, Y, priority, flip X, flip Y, tile
+number, and palette. Entries 1, 2, and 3 use offsets 4, 8, and 12. Entry 0 is
+reserved for our future ball. `OBJ_SIZE8_L16` selects 8-by-8 small sprites and
+16-by-16 large sprites.
+
+There are sixteen tiles per row in this sheet. A large sprite starting at tile
+10 uses tiles 10, 11, 26, and 27. The transparent bottom row keeps the paddle
+eight pixels tall.
+
+Our VRAM plan uses word addresses: sprite tiles at `0x0000`, font at `0x3000`,
+and text map at `0x6800`. Upload lengths, such as 1,024, are in **bytes**.
+Keep these non-overlapping allocations unchanged for now.
+
+`padsCurrent(0)` reads held buttons; `padsDown(0)` reads newly pressed buttons.
+Left and Right together cancel out. `WaitForVBlank()` keeps input refreshing
+and lets the library transfer its sprite/text buffers. Do not add an
+`oamUpdate()` call or replace the frame wait with a delay.
+
+```sh
+make
+```
+
+**Checkpoint:** only a border and paddle appear. Left/Right moves the paddle,
+and it stops at both walls. There is still no ball and nothing to launch.
 
 ---
 
-## 8. Attach and launch the ball
+## 3. Attach a ball and launch it
 
-In `STATE_READY`, [game.c](src/game.c) positions the ball just above the paddle:
+We will first implement the ball's **state**, without motion. That gives us a
+small testable change before physics.
 
-```c
-game->ball_x = game->paddle_x + (PADDLE_WIDTH - BALL_SIZE) / 2;
-game->ball_y = PADDLE_Y - BALL_SIZE;
-game->vx = 1;
-game->vy = -3;
+Edit `src\game.h`:
+
+```diff
+--- a/src/game.h
++++ b/src/game.h
+@@
+ #define FIELD_RIGHT 240
+
++#define BALL_SIZE 8
+ #define PADDLE_WIDTH 48
+@@
+ #define PADDLE_SPEED 3
+
++enum GameState {
++    STATE_READY,
++    STATE_PLAYING
++};
++
+ typedef struct Game {
+     int paddle_x;
++    int ball_x;
++    int ball_y;
++    int vx;
++    int vy;
++    int state;
+ } Game;
 ```
 
-This centers an 8-pixel ball on a 48-pixel paddle.
+Add `attach_ball` immediately after the include in `src\game.c`, then update
+the two existing functions:
 
-A new B or Start press changes the state to `STATE_PLAYING`.
-On following updates the ball travels right and upward.
+```diff
+--- a/src/game.c
++++ b/src/game.c
+@@
+ #include "game.h"
 
-There is no floating-point math, allocation, or variable time step.
-One call to `game_tick` represents one game update.
++static void attach_ball(Game *game)
++{
++    game->ball_x = game->paddle_x + (PADDLE_WIDTH - BALL_SIZE) / 2;
++    game->ball_y = PADDLE_Y - BALL_SIZE;
++    game->vx = 1;
++    game->vy = -3;
++}
++
+ void game_reset(Game *game)
+ {
+     game->paddle_x = (FIELD_LEFT + FIELD_RIGHT - PADDLE_WIDTH) / 2;
++    game->state = STATE_READY;
++    attach_ball(game);
+ }
+@@
+ void game_tick(Game *game, int movement, int action_pressed)
+ {
+-    (void)action_pressed;
+     game->paddle_x += movement * PADDLE_SPEED;
+@@
+     if (game->paddle_x + PADDLE_WIDTH > FIELD_RIGHT)
+         game->paddle_x = FIELD_RIGHT - PADDLE_WIDTH;
++
++    if (game->state == STATE_READY) {
++        attach_ball(game);
++        if (action_pressed)
++            game->state = STATE_PLAYING;
++        return;
++    }
+ }
+```
 
-This introductory version is tuned for a 60 Hz NTSC system. On a 50 Hz PAL
-system, the same per-update speeds make it slower in real time. Frame-rate
-compensation is a useful later exercise, not something hidden by the library.
+The centering offset is `(48 - 8) / 2`, or 20 pixels. `vx` and `vy` are
+velocities; negative Y will mean upward movement. A new B/Start press launches,
+not a continuously held button.
+
+Add the ball's drawing and initial sprite definition in `src\main.c`. Both
+insertions are shown next to the existing paddle code:
+
+```diff
+--- a/src/main.c
++++ b/src/main.c
+@@
+ static void draw_game(void)
+ {
+     int i;
+
++    oamSetXY(0, game.ball_x, game.ball_y);
+     for (i = 0; i < 3; ++i)
+         oamSetXY((i + 1) * 4, game.paddle_x + i * 16, PADDLE_Y);
+@@
+     bgSetDisable(2);
+     oamClear(0, 0);
++    oamSet(0, game.ball_x, game.ball_y, 3, 0, 0, 12, 0);
++    oamSetEx(0, OBJ_SMALL, OBJ_SHOW);
+     for (i = 0; i < 3; ++i) {
+```
+
+The ball uses tile 12, offset 0, and the small 8-by-8 sprite size.
+
+```sh
+make
+```
+
+**Checkpoint:** the ball follows the paddle. Press B or Start: it stays at its
+launch position while the paddle can move away. This frozen launched ball is
+intentional; we have not written its movement yet.
 
 ---
 
-## 9. Build collisions from rectangles
+## 4. Move the ball and bounce off walls
 
-Think of every object as an invisible rectangle around its visible artwork.
+Add the vertical bounds and substep limit in `src\game.h`:
 
-For a ball at `(x, y)` and a brick at `(brick_x, brick_y)`, overlap means:
+```diff
+--- a/src/game.h
++++ b/src/game.h
+@@
+ #define FIELD_LEFT 16
+ #define FIELD_RIGHT 240
++#define FIELD_TOP 32
++#define FIELD_BOTTOM 224
+
+ #define BALL_SIZE 8
++#define BALL_SUBSTEPS 3
+```
+
+Instead of jumping several pixels and then checking overlap, test each
+one-pixel **candidate position**. If it crosses a wall, reverse the velocity
+and keep the old position. This will also prevent jumping through thin bricks
+later. X and Y are handled separately, with X first at corners.
+
+In `src\game.c`, insert `magnitude` before `attach_ball`, and the movement
+helpers between `game_reset` and `game_tick`:
+
+```diff
+--- a/src/game.c
++++ b/src/game.c
+@@
+ #include "game.h"
+
++static int magnitude(int value)
++{
++    if (value < 0)
++        return -value;
++    return value;
++}
++
+ static void attach_ball(Game *game)
+@@
+     attach_ball(game);
+ }
+
++static void move_ball_x(Game *game)
++{
++    int next_x;
++
++    next_x = game->ball_x + (game->vx > 0 ? 1 : -1);
++    if (next_x < FIELD_LEFT || next_x + BALL_SIZE > FIELD_RIGHT) {
++        game->vx = -game->vx;
++    } else {
++        game->ball_x = next_x;
++    }
++}
++
++static void move_ball_y(Game *game)
++{
++    int next_y;
++
++    next_y = game->ball_y + (game->vy > 0 ? 1 : -1);
++    if (next_y < FIELD_TOP) {
++        game->vy = -game->vy;
++    } else {
++        game->ball_y = next_y;
++    }
++}
++
+ void game_tick(Game *game, int movement, int action_pressed)
+ {
++    int step;
++
+     game->paddle_x += movement * PADDLE_SPEED;
+@@
+         if (action_pressed)
+             game->state = STATE_PLAYING;
+         return;
+     }
++
++    for (step = 0; step < BALL_SUBSTEPS; ++step) {
++        if (step < magnitude(game->vx))
++            move_ball_x(game);
++        if (step < magnitude(game->vy))
++            move_ball_y(game);
++        if (game->ball_y >= FIELD_BOTTOM) {
++            game->state = STATE_READY;
++            attach_ball(game);
++            return;
++        }
++    }
+ }
+```
+
+There is no bottom wall. For now, falling offscreen simply reattaches the ball
+so you can launch again. Lives will replace that temporary behavior in step 7.
+
+Keep every velocity component's magnitude at most `BALL_SUBSTEPS` (currently
+3). The loop deliberately skips an axis when its velocity is zero.
+One tick is one frame; these speeds are tuned for NTSC's 60 Hz. PAL's 50 Hz
+will be slower in real time until you add timing compensation.
+
+```sh
+make
+```
+
+**Checkpoint:** launch and watch the ball travel up/right and rebound off the
+top and side walls. It passes through the paddle for now, falls offscreen, and
+reattaches. No bricks should exist yet.
+
+---
+
+## 5. Bounce off the paddle
+
+A paddle contact must be downward, cross the paddle's top from above, and
+overlap horizontally. Otherwise a missed ball could be caught from underneath.
+
+Add `paddle_bounce` between `move_ball_x` and `move_ball_y` in `src\game.c`,
+then extend the existing Y movement's `if`/`else` chain:
+
+```diff
+--- a/src/game.c
++++ b/src/game.c
+@@
+         game->ball_x = next_x;
+     }
+ }
+
++static void paddle_bounce(Game *game)
++{
++    int hit_position;
++
++    hit_position = game->ball_x + BALL_SIZE / 2 - game->paddle_x;
++    if (hit_position < PADDLE_WIDTH / 3) {
++        game->vx = -2;
++        game->vy = -2;
++    } else if (hit_position >= 2 * PADDLE_WIDTH / 3) {
++        game->vx = 2;
++        game->vy = -2;
++    } else {
++        game->vx = game->vx < 0 ? -1 : 1;
++        game->vy = -3;
++    }
++}
++
+ static void move_ball_y(Game *game)
+@@
+     next_y = game->ball_y + (game->vy > 0 ? 1 : -1);
+     if (next_y < FIELD_TOP) {
+         game->vy = -game->vy;
++    } else if (game->vy > 0 &&
++               game->ball_y + BALL_SIZE <= PADDLE_Y &&
++               next_y + BALL_SIZE > PADDLE_Y &&
++               game->ball_x + BALL_SIZE > game->paddle_x &&
++               game->ball_x < game->paddle_x + PADDLE_WIDTH) {
++        game->ball_y = PADDLE_Y - BALL_SIZE;
++        paddle_bounce(game);
+     } else {
+         game->ball_y = next_y;
+     }
+ }
+```
+
+We place the ball just above the paddle on contact. Its center determines the
+rebound zone:
+
+| Paddle zone | `vx` | `vy` |
+|---|---:|---:|
+| Left third | -2 | -2 |
+| Middle third | -1 or +1, keeping its horizontal direction | -3 |
+| Right third | +2 | -2 |
+
+This approximates shot angles without trigonometry. It does not preserve
+identical mathematical speed in every zone.
+
+```sh
+make
+```
+
+**Checkpoint:** catch a descending ball. It rebounds upward; catches near the
+left/right ends send it in those directions. Deliberately miss and verify
+that it still reattaches for another launch.
+
+---
+
+## 6. Add a wall of destructible bricks
+
+### Store the grid
+
+Extend `src\game.h` with brick dimensions and data:
+
+```diff
+--- a/src/game.h
++++ b/src/game.h
+@@
+ #define PADDLE_SPEED 3
+
++#define BRICK_COLS 10
++#define BRICK_ROWS 5
++#define BRICK_COUNT (BRICK_COLS * BRICK_ROWS)
++#define BRICK_X 30
++#define BRICK_Y 48
++#define BRICK_WIDTH 16
++#define BRICK_HEIGHT 8
++#define BRICK_PITCH_X 20
++#define BRICK_PITCH_Y 16
++
+ enum GameState {
+@@
+     int vx;
+     int vy;
++    unsigned int score;
++    int bricks_left;
+     int state;
++    unsigned char bricks[BRICK_COUNT];
+ } Game;
+```
+
+`bricks[index]` is 1 when alive and 0 when destroyed. The pitch includes the gap:
+`index = row * BRICK_COLS + col`, X is `BRICK_X + col * BRICK_PITCH_X`, and
+Y is `BRICK_Y + row * BRICK_PITCH_Y`.
+
+Initialize all bricks and score in `src\game.c`:
+
+```diff
+--- a/src/game.c
++++ b/src/game.c
+@@
+ void game_reset(Game *game)
+ {
++    int i;
++
+     game->paddle_x = (FIELD_LEFT + FIELD_RIGHT - PADDLE_WIDTH) / 2;
++    game->score = 0;
++    game->bricks_left = BRICK_COUNT;
+     game->state = STATE_READY;
++    for (i = 0; i < BRICK_COUNT; ++i)
++        game->bricks[i] = 1;
+     attach_ball(game);
+ }
+```
+
+### Test candidate rectangles against live bricks
+
+Two rectangles overlap only when all four inequalities hold:
 
 ```c
 x + BALL_SIZE > brick_x &&
@@ -611,349 +804,448 @@ y + BALL_SIZE > brick_y &&
 y < brick_y + BRICK_HEIGHT
 ```
 
-All four conditions must be true.
+Merely touching an edge is not overlap. We reject non-overlapping rows first
+to avoid examining every brick when the ball is far from the wall.
 
-The strict inequalities are deliberate: rectangles that merely touch at an edge
-are not yet overlapping.
+Insert this complete helper **between `game_reset` and `move_ball_x`** in
+`src\game.c`. Then add its calls to the existing X/Y collision chains:
 
-### Do not just move, overlap, and reverse forever
+```diff
+--- a/src/game.c
++++ b/src/game.c
+@@
+     attach_ball(game);
+ }
 
-A common beginner bug is:
-
-1. Move the ball into a brick.
-2. Reverse its direction.
-3. Leave it inside the brick.
-4. Reverse it again next frame.
-
-Our solution is to test a **candidate position**. If it would hit something,
-reverse that axis and keep the previous position.
-
-We also move **one pixel at a time**, with at most three substeps:
-
-```c
-for (step = 0; step < BALL_SUBSTEPS; ++step) {
-    if (step < magnitude(game->vx))
-        move_ball_x(game);
-    /* Check whether the level ended here. */
-    if (step < magnitude(game->vy))
-        move_ball_y(game);
-    /* Check whether the level ended or a life was lost here. */
-}
++static int hit_brick(Game *game, int x, int y)
++{
++    int row;
++    int col;
++    int brick_x;
++    int brick_y;
++    int index;
++
++    if (y + BALL_SIZE <= BRICK_Y ||
++        y >= BRICK_Y + (BRICK_ROWS - 1) * BRICK_PITCH_Y + BRICK_HEIGHT)
++        return 0;
++
++    for (row = 0; row < BRICK_ROWS; ++row) {
++        brick_y = BRICK_Y + row * BRICK_PITCH_Y;
++        if (y + BALL_SIZE <= brick_y || y >= brick_y + BRICK_HEIGHT)
++            continue;
++
++        for (col = 0; col < BRICK_COLS; ++col) {
++            index = row * BRICK_COLS + col;
++            if (!game->bricks[index])
++                continue;
++            brick_x = BRICK_X + col * BRICK_PITCH_X;
++            if (x + BALL_SIZE > brick_x && x < brick_x + BRICK_WIDTH) {
++                game->bricks[index] = 0;
++                game->score += 10;
++                --game->bricks_left;
++                return 1;
++            }
++        }
++    }
++    return 0;
++}
++
+ static void move_ball_x(Game *game)
+@@
+     if (next_x < FIELD_LEFT || next_x + BALL_SIZE > FIELD_RIGHT) {
+         game->vx = -game->vx;
++    } else if (hit_brick(game, next_x, game->ball_y)) {
++        game->vx = -game->vx;
+     } else {
+         game->ball_x = next_x;
+@@
+         game->ball_y = PADDLE_Y - BALL_SIZE;
+         paddle_bounce(game);
++    } else if (hit_brick(game, game->ball_x, next_y)) {
++        game->vy = -game->vy;
+     } else {
+         game->ball_y = next_y;
 ```
 
-This excerpt omits the state checks for readability; use the complete
-`game_tick` implementation in [game.c](src/game.c).
+Each hit removes one live brick, adds ten points, and reverses the tested axis.
+The candidate position is rejected, so the ball is not left inside the brick.
 
-Handling X and Y separately tells us which velocity component to reverse.
-Checking every pixel prevents the ball from jumping through a thin brick.
-The order is deterministic at corners: horizontal movement is handled first.
-This is simple arcade physics, not a continuous circle-versus-polygon solver.
+### Draw only changed bricks
 
-**Keep every velocity component within `BALL_SUBSTEPS`.** In this project, that
-means a maximum magnitude of 3. If you increase speeds later, update the
-substep limit and retest collisions and frame timing.
+Add the cache and renderer **above `draw_game`** in `src\main.c`, then call
+it after drawing the paddle. The initialization edit is next to `oamClear`:
 
-The left, right, and top walls follow the same rule: reject an out-of-bounds
-candidate position and reverse the corresponding velocity.
+```diff
+--- a/src/main.c
++++ b/src/main.c
+@@
+ Game game;
+
++static unsigned char shown_alive[BRICK_COUNT];
++static int shown_bricks = -1;
++
++static void draw_bricks(void)
++{
++    int index;
++    int id;
++
++    if (shown_bricks == game.bricks_left)
++        return;
++
++    for (index = 0; index < BRICK_COUNT; ++index) {
++        if (shown_alive[index] == game.bricks[index])
++            continue;
++
++        id = (index + 4) * 4;
++        if (game.bricks[index]) {
++            oamSet(id, BRICK_X + (index % BRICK_COLS) * BRICK_PITCH_X,
++                   BRICK_Y + (index / BRICK_COLS) * BRICK_PITCH_Y,
++                   3, 0, 0, (index / BRICK_COLS) * 2, 0);
++            oamSetEx(id, OBJ_LARGE, OBJ_SHOW);
++        } else {
++            oamSetVisible(id, OBJ_HIDE);
++        }
++        shown_alive[index] = game.bricks[index];
++    }
++    shown_bricks = game.bricks_left;
++}
++
+ static void draw_game(void)
+@@
+     for (i = 0; i < 3; ++i)
+         oamSetXY((i + 1) * 4, game.paddle_x + i * 16, PADDLE_Y);
++    draw_bricks();
+ }
+@@
+     bgSetDisable(2);
+     oamClear(0, 0);
++    for (i = 0; i < BRICK_COUNT; ++i)
++        shown_alive[i] = 0;
++
+     oamSet(0, game.ball_x, game.ball_y, 3, 0, 0, 12, 0);
+```
+
+Brick rows start at tiles 0, 2, 4, 6, and 8. A 16-by-16 sprite at tile 0 uses
+tiles 0, 1, 16, and 17; it does not use four consecutive tile numbers.
+
+The cache starts at zero because all sprites are initially hidden. Defining a
+restored brick with `oamSet` also restores its position: hiding a sprite moves
+it offscreen, so simply showing it again is insufficient.
+
+The scene uses 54 of the SNES's 128 sprite entries. On a brick scanline there
+are at most eleven sprites and 21 eight-pixel tile slivers, below the limits
+of 32 sprites and 34 slivers. Transparent lower halves still count toward
+hardware limits; the 16-pixel vertical pitch keeps rows from overlapping.
+
+```sh
+make
+```
+
+**Checkpoint:** fifty bricks appear in five colored rows. Hits remove bricks
+and rebound the ball; misses preserve the damage. Score is being accumulated,
+but is not displayed yet. Clearing the wall does not end play yet either.
 
 ---
 
-## 10. Create, hit, and remove the bricks
+## 7. Add lives, winning, and restarting
 
-The grid constants in [game.h](src/game.h) are:
+Add the terminal states and life count in `src\game.h`:
 
-```c
-#define BRICK_COLS 10
-#define BRICK_ROWS 5
-#define BRICK_X 30
-#define BRICK_Y 48
-#define BRICK_WIDTH 16
-#define BRICK_HEIGHT 8
-#define BRICK_PITCH_X 20
-#define BRICK_PITCH_Y 16
+```diff
+--- a/src/game.h
++++ b/src/game.h
+@@
+ enum GameState {
+     STATE_READY,
+-    STATE_PLAYING
++    STATE_PLAYING,
++    STATE_GAME_OVER,
++    STATE_WON
+ };
+@@
+     int vy;
+     unsigned int score;
++    int lives;
+     int bricks_left;
 ```
 
-The **pitch** is the distance between neighboring starting positions, including
-the gap.
+In `src\game.c`, initialize lives, detect the last brick, and add `lose_life`
+**between `move_ball_y` and `game_tick`**. Finally replace the temporary
+offscreen reset and add state checks inside the substep loop:
 
-For a row and column:
+```diff
+--- a/src/game.c
++++ b/src/game.c
+@@
+     game->paddle_x = (FIELD_LEFT + FIELD_RIGHT - PADDLE_WIDTH) / 2;
+     game->score = 0;
++    game->lives = 3;
+     game->bricks_left = BRICK_COUNT;
+@@
+                 game->bricks[index] = 0;
+                 game->score += 10;
+                 --game->bricks_left;
++                if (game->bricks_left == 0)
++                    game->state = STATE_WON;
+                 return 1;
+@@
+         game->ball_y = next_y;
+     }
+ }
 
-```c
-index = row * BRICK_COLS + col;
-brick_x = BRICK_X + col * BRICK_PITCH_X;
-brick_y = BRICK_Y + row * BRICK_PITCH_Y;
++static void lose_life(Game *game)
++{
++    --game->lives;
++    if (game->lives == 0) {
++        game->state = STATE_GAME_OVER;
++    } else {
++        game->state = STATE_READY;
++        attach_ball(game);
++    }
++}
++
+ void game_tick(Game *game, int movement, int action_pressed)
+ {
+     int step;
+
++    if (game->state == STATE_GAME_OVER || game->state == STATE_WON) {
++        if (action_pressed)
++            game_reset(game);
++        return;
++    }
++
+     game->paddle_x += movement * PADDLE_SPEED;
+@@
+         return;
+     }
+
++    /* Check each pixel, rather than jumping across a thin brick. */
+     for (step = 0; step < BALL_SUBSTEPS; ++step) {
+         if (step < magnitude(game->vx))
+             move_ball_x(game);
++        if (game->state != STATE_PLAYING)
++            return;
+         if (step < magnitude(game->vy))
+             move_ball_y(game);
++        if (game->state != STATE_PLAYING)
++            return;
+         if (game->ball_y >= FIELD_BOTTOM) {
+-            game->state = STATE_READY;
+-            attach_ball(game);
++            lose_life(game);
+             return;
+         }
+     }
 ```
 
-When a candidate ball position overlaps a live brick:
-
-```c
-game->bricks[index] = 0;
-game->score += 10;
---game->bricks_left;
-if (game->bricks_left == 0)
-    game->state = STATE_WON;
-```
-
-The movement function then reverses the appropriate velocity component.
-Destroyed bricks are skipped by future collision checks.
-
-The implementation rejects rows outside the ball's vertical range before
-examining individual bricks. This avoids doing all fifty rectangle checks for
-every tiny movement when the ball is nowhere near the wall.
-
-### Make the picture match the data
-
-`draw_bricks` in [main.c](src/main.c) remembers which bricks it last displayed.
-When a brick changes from alive to destroyed, it hides that sprite:
-
-```c
-oamSetVisible((index + 4) * 4, OBJ_HIDE);
-```
-
-When bricks are restored for a new game, it defines their positions and artwork
-again. This matters because PVSnesLib's hide operation moves a sprite offscreen;
-showing it later also requires restoring its coordinates.
-
-The renderer's cache is explicitly initialized. Do not rely on the contents of
-uninitialized hardware RAM happening to match what an emulator provided.
-
-### Stay within the SNES sprite limits
-
-The SNES supports 128 sprite entries, but it also has per-scanline limits:
-32 sprites and 34 eight-pixel sprite tile slivers.
-
-Our scene uses 54 entries in total. On a brick row there are at most ten
-16-pixel-wide bricks plus the ball: eleven sprites and 21 slivers.
-
-The 16-pixel row pitch is important. A brick's transparent lower half still
-belongs to its 16-by-16 hardware sprite. Transparent pixels do not exempt it
-from the hardware's scanline budgeting.
-
-For a bigger wall, backgrounds would usually be a better representation.
-Sprites make this small first game easier to follow.
-
-**Checkpoint:** launch the ball. A brick should disappear when hit, the score
-should increase by ten, and that brick should not score again.
-
----
-
-## 11. Bounce off the top of the paddle
-
-The paddle collision has extra conditions:
-
-- The ball must be traveling downward.
-- Its bottom was at or above the paddle's top.
-- Its new bottom would cross that top.
-- Its horizontal range must overlap the paddle.
-
-These checks prevent a ball that already missed the paddle from being caught
-from underneath.
-
-On contact, place the ball above the paddle:
-
-```c
-game->ball_y = PADDLE_Y - BALL_SIZE;
-```
-
-Then divide the paddle into three zones:
-
-| Hit zone | New horizontal velocity | New vertical velocity |
-|---|---:|---:|
-| Left third | -2 | -2 |
-| Middle third | -1 or +1, preserving horizontal direction | -3 |
-| Right third | +2 | -2 |
-
-The calculation uses the ball's center relative to the paddle:
-
-```c
-hit_position = game->ball_x + BALL_SIZE / 2 - game->paddle_x;
-```
-
-This gives the player control over the next shot without introducing
-trigonometry. It intentionally approximates angles rather than keeping exactly
-the same mathematical speed for every rebound.
-
-**Checkpoint:** move the paddle so the ball lands near either end. Its outgoing
-direction should change accordingly.
-
----
-
-## 12. Handle lives, winning, and restarting
-
-If the ball's top reaches Y 224, it has left the bottom of the visible screen.
-There is deliberately no bottom wall.
-
-The logic is:
+Those early returns matter: once the last brick is destroyed, remaining
+substeps must not keep moving or changing the score.
 
 ```text
 READY --new B/Start press--> PLAYING
-
-PLAYING --miss, lives remain--> READY
-PLAYING --miss, no lives remain--> GAME_OVER
-PLAYING --last brick destroyed--> WON
-
-GAME_OVER or WON --new B/Start press--> READY, with a fresh game
+PLAYING --miss with lives left--> READY
+PLAYING --last miss--> GAME_OVER
+PLAYING --last brick--> WON
+GAME_OVER or WON --new B/Start press--> fresh READY
 ```
 
-Losing a life:
+A missed ball costs one life and preserves score/bricks. A new game restores
+everything, including the centered paddle. Restarting returns immediately,
+so a **separate** button press is needed to launch again.
 
-- Decreases the life count once.
-- Preserves the score and remaining bricks.
-- Reattaches the ball if lives remain.
+```sh
+make
+```
 
-Starting a new game:
-
-- Restores three lives.
-- Resets the score to zero.
-- Restores all fifty bricks.
-- Waits for a separate launch press.
-
-The update function returns as soon as the game leaves `STATE_PLAYING`.
-That prevents later substeps from continuing to move the ball or modify the
-score after the last brick or last life.
-
-![Game-over screen](screenshots/game-over.png)
+**Checkpoint:** miss three times, relaunching between misses. After the third,
+paddle movement stops. Release and press B/Start: all bricks return and the
+ball reattaches. Release and press again to launch. There are no status messages
+yet; we will make these states visible next.
 
 ---
 
-## 13. Draw the HUD without unnecessary work
+## 8. Draw the score, lives, and prompts
 
-The text console provides the score, lives, and prompts; no custom font is
-required.
+Text should update when values change, not on every pixel movement. The maximum
+score is 50 times 10, or 500, so a three-digit string is enough.
 
-`draw_text` in [main.c](src/main.c) remembers the last score, life count, and
-state. It only changes text when the corresponding value changes.
+In `src\main.c`, add the text buffers and caches next to the brick cache:
 
-For the three-digit score, it creates a short string:
+```diff
+--- a/src/main.c
++++ b/src/main.c
+@@
+ static unsigned char shown_alive[BRICK_COUNT];
++static char score_text[] = "000";
++static char lives_text[] = "3";
+ static int shown_bricks = -1;
++static int shown_score = -1;
++static int shown_lives = -1;
++static int shown_state = -1;
 
-```c
-score_text[0] = '0' + game.score / 100;
-score_text[1] = '0' + (game.score / 10) % 10;
-score_text[2] = '0' + game.score % 10;
-consoleDrawText(8, 1, score_text);
+ static void draw_bricks(void)
 ```
 
-`score_text` starts as `"000"`, so it already has room for the terminating zero
-byte. The maximum score in our single level is 500.
+Now insert `draw_text` **between `draw_bricks` and `draw_game`**, call it at
+the end of `draw_game`, and add the HUD labels above the border:
 
-This also avoids doing full printf-style integer formatting in the game loop.
-That operation was expensive enough to cause a one-frame hitch on brick hits in
-an earlier version of this example.
+```diff
+--- a/src/main.c
++++ b/src/main.c
+@@
+     shown_bricks = game.bricks_left;
+ }
 
-State messages are cleared with spaces before a new message is written. Without
-that step, a shorter message can leave characters from the old one on screen.
++static void draw_text(void)
++{
++    if (shown_score != game.score) {
++        score_text[0] = '0' + game.score / 100;
++        score_text[1] = '0' + (game.score / 10) % 10;
++        score_text[2] = '0' + game.score % 10;
++        consoleDrawText(8, 1, score_text);
++        shown_score = game.score;
++    }
++    if (shown_lives != game.lives) {
++        lives_text[0] = '0' + game.lives;
++        consoleDrawText(20, 1, lives_text);
++        shown_lives = game.lives;
++    }
++
++    if (shown_state == game.state)
++        return;
++
++    consoleDrawText(3, 18, "                          ");
++    consoleDrawText(3, 20, "                          ");
++    if (game.state == STATE_READY) {
++        consoleDrawText(7, 18, "B / START TO LAUNCH");
++        consoleDrawText(6, 20, "LEFT / RIGHT TO MOVE");
++    } else if (game.state == STATE_GAME_OVER) {
++        consoleDrawText(11, 18, "GAME OVER");
++        consoleDrawText(7, 20, "B / START: NEW GAME");
++    } else if (game.state == STATE_WON) {
++        consoleDrawText(12, 18, "YOU WIN!");
++        consoleDrawText(7, 20, "B / START: NEW GAME");
++    }
++    shown_state = game.state;
++}
++
+ static void draw_game(void)
+@@
+         oamSetXY((i + 1) * 4, game.paddle_x + i * 16, PADDLE_Y);
+     draw_bricks();
++    draw_text();
+ }
+@@
+         oamSetEx((i + 1) * 4, OBJ_LARGE, OBJ_SHOW);
+     }
 
-Keep text output out of the innermost collision loops. A debugging print on
-every pixel movement can become the reason the game runs slowly.
++    consoleDrawText(2, 1, "SCORE       LIVES");
+     consoleDrawText(1, 3, "##############################");
+```
+
+The string initializers already include the terminating zero byte. Writing
+digits directly avoids printf-style formatting in the game loop. Clearing
+messages with spaces prevents remnants when a new message is shorter.
+
+The existing `draw_game()` call in `init_video` now draws the initial HUD
+before turning the screen on. The main loop already calls it each frame;
+no other call sites need to change.
+
+```sh
+make
+```
+
+**Checkpoint:** the ready screen shows score `000`, lives `3`, and launch/move
+prompts. Launching clears the prompts. Hits add ten points; misses decrease
+lives. Game over displays a restart prompt.
+
+![The game-over screen you have now added](screenshots/game-over.png)
 
 ---
 
-## 14. Build and play your ROM
+## 9. Test the complete game
 
-Open an MSYS2 UCRT64 terminal in the repository root, then run:
+You now have this project in **your SDK installation**, built incrementally:
+
+```text
+pvsneslib\
+    devkitsnes\
+    pvsneslib\
+    snes-examples\
+        breakout\
+            Makefile
+            sprites.png
+            THIRD_PARTY_NOTICES.txt
+            src\
+                main.c
+                game.h
+                game.c
+                data.asm
+```
+
+Generated graphics, header, object files, and ROM will also be present. For a
+clean rebuild from your `breakout` directory:
 
 ```sh
 make clean
 make
 ```
 
-Open the generated `breakout.sfc` in the emulator. This project produces a
-256 KiB LoROM with an NTSC-region header. The ROM is a local build output, not a
-file checked into the repository.
+Reopen the generated ROM, or reload it in the emulator. Test in this order:
 
-### Controls
+1. Before launching, move to both walls: paddle clamps; ball stays centered.
+2. Press B/Start: the ball launches; holding it does not repeatedly launch.
+3. Watch left, right, and top wall rebounds.
+4. Hit a brick: it disappears, adds ten points, and cannot score again.
+5. Catch the ball on each paddle third: verify the outgoing direction.
+6. Miss: exactly one life is lost; previous score and brick damage remain.
+7. Lose the last life: movement stops and `GAME OVER` appears.
+8. Restart: score `000`, lives `3`, all fifty bricks, and a waiting ball.
+9. Clear the wall: score `500`, `YOU WIN!`, and no further movement.
+10. Restart after winning, then use a separate press to launch.
 
-| Button | Action |
-|---|---|
-| Left / Right | Move the paddle. |
-| B or Start, while waiting | Launch the ball. |
-| B or Start, after a win or game over | Start a new game. |
+Silence is expected. There is no pause button in this version.
 
-There is no pause button in this first version. Silence is expected: we have not
-added a sound driver or sound effects.
+Only **now**, if you want to compare your work, open the finished reference
+[game.h](src/game.h), [game.c](src/game.c), [main.c](src/main.c), and
+[data.asm](src/data.asm). Your learner Makefile intentionally has a different
+SDK default from the repository's [reference Makefile](Makefile).
 
-### Test in this order
+Emulator testing is not proof of correct behavior on a physical SNES. Test
+accurate emulators and real hardware when available before publishing a game.
 
-1. **Before launching:** move from wall to wall. The paddle stops at the edges
-   and the ball follows it.
-2. **Launch:** release and press B. The ball leaves the paddle.
-3. **Walls:** watch left, right, and top rebounds.
-4. **Brick:** check that one destroyed brick adds ten points.
-5. **Paddle:** try left-, middle-, and right-third rebounds.
-6. **Miss:** deliberately move away. Exactly one life is lost.
-7. **Continue:** relaunch. Earlier damage to the wall remains.
-8. **Game over:** lose the last life. Movement stops until a new-game press.
-9. **Restart:** verify three lives, zero score, and all fifty bricks.
-10. **Win:** remove the wall. The final score is 500, and a new game is possible.
-
-The optional [C gameplay tests](tests/test_game.c) exercise the rules without
-requiring SNES graphics. They cover reset/launch, paddle limits, walls, brick
-faces and corners, rebound zones, lives, scoring, winning, and restarting.
-
-**Validation of the supplied example:** it was built with the Windows PVSnesLib
-4.6.0 toolchain, passed eight native C gameplay test groups, and was exercised
-as a compiled ROM in SNES9x. Emulator checks covered controller input, launching,
-actual brick hits, and controlled test states for winning, game over, and both
-restart paths. The converted artwork was also checked pixel-for-pixel against
-the PNG.
-
-Emulator testing is valuable but is not proof of behavior on a physical console.
-Before publishing a game, test multiple accurate emulators and real hardware
-when available.
-
----
-
-## 15. Troubleshooting
+## Troubleshooting
 
 | Symptom | Check |
 |---|---|
-| `PVSnesLib 4.6.0 not found` | Extract the release into `vendor/pvsneslib`. That directory must contain `devkitsnes`, `pvsneslib`, and `snes-examples`, not another outer SDK folder. An explicit `PVSNESLIB_HOME` override must also point at this outer SDK directory. |
-| Build cannot find shell utilities | On Windows, use the documented MSYS2 UCRT64 environment and install GNU Make. |
-| `missing separator` from Make | The graphics conversion recipe needs a tab, not spaces. |
-| A Windows library path looks malformed during linking | Keep the project and SDK paths free of spaces. The local default uses a drive-based MSYS path; explicit Windows overrides should use the same form, such as `/c/snesdev/pvsneslib`. |
-| You see old behavior | Rebuild and confirm that the emulator opened the new ROM, not an older copy elsewhere. |
-| The controller does nothing | Configure the emulator's first controller, give its window focus, and verify the frame loop still calls `WaitForVBlank`. |
-| Artwork is scrambled | Keep the sheet indexed, preserve tile order, and use the supplied converter options. |
-| A sprite has an unexpected lower half | Tiles 16 through 31 must remain transparent. |
-| A shown-again brick stays offscreen | Restore its coordinates as well as its visibility. |
-| Parts of a larger wall disappear | Check per-scanline sprite limits, including transparent parts of hardware sprites. |
-| Text or sprites become corrupt after moving graphics | Recheck the VRAM allocation plan for overlap. |
-| The game runs slower on PAL | This version uses frame-based NTSC-tuned speeds; PAL compensation is not implemented. |
+| SDK not found | Your project belongs at `<SDK root>\snes-examples\breakout`. The outer SDK root must contain `devkitsnes`, `pvsneslib`, and `snes-examples`. Check an existing `PVSNESLIB_HOME` override too. |
+| Build cannot find shell utilities | Use MSYS2 UCRT64 on Windows and install GNU Make. |
+| `missing separator` | Makefile command recipes need tabs; do not paste diff markers. |
+| A malformed library path during linking | Keep paths free of spaces. Use an absolute MSYS2 SDK path, such as `/c/snesdev/pvsneslib`, not Windows backslashes in `PVSNESLIB_HOME`. |
+| Undefined function/field | Apply the steps in order; check the file and neighboring code named in the diff. |
+| Old behavior after rebuilding | Open the ROM from your new learner project, not the reference repository or Hello World directory. |
+| No controller response | Configure controller 1, focus the emulator, and keep `WaitForVBlank` in the loop. |
+| Ball freezes after launching in step 3 | Expected until step 4 adds movement. |
+| Ball passes through paddle in step 4 | Expected until step 5 adds paddle collisions. |
+| Bricks disappear but no score is visible in step 6 | Expected until step 8 adds the HUD. |
+| Scrambled artwork | Preserve the indexed sheet and tile order; use the specified converter options. |
+| Unexpected sprite lower half | Tiles 16 through 31 should be transparent. |
+| Restored bricks stay offscreen | Restore positions with `oamSet`, not visibility alone. |
+| Parts of a larger wall disappear | Check scanline sprite/sliver limits, including transparent sprite areas. |
+| Corrupt text/sprites after moving graphics | Check for overlapping VRAM allocations. |
+| Slower on PAL | Speeds are frame-based and NTSC-tuned; compensation is not implemented. |
 
-If you change the sprite sheet's dimensions or palette size, update the upload
-sizes in [main.c](src/main.c) too. Do not keep uploading a hard-coded 1,024 bytes
-from a differently sized asset.
-
----
-
-## 16. Extend one thing at a time
-
-Once this version is working, useful next steps are:
-
-1. **Multiple levels:** replace the all-alive initialization with level arrays.
-2. **Pause:** add a paused state and decide how Start interacts with launching
-   and restarting.
-3. **Better artwork:** preserve the palette and tile layout first, then learn
-   a more flexible asset pipeline.
-4. **Sound effects:** work through the library's sound examples and SPC700
-   facilities. Sound is a separate subsystem, not a call to a PC speaker.
-5. **Background-based bricks:** use a background tilemap for the wall, freeing
-   sprite entries for power-ups and effects.
-6. **PAL timing:** compensate for display frequency and retest collision speed
-   limits and frame budgets.
-
-Make one change, rebuild, and rerun the relevant checkpoints before moving on.
-
----
+If you change the sheet dimensions or palette size, change the upload lengths
+in your `init_video` too. Do not upload 1,024 bytes from a smaller asset.
 
 ## Running the gameplay tests
 
-The rules in [game.c](src/game.c) can be tested without the SNES toolchain or an
-emulator. Run the following commands from the repository root.
+After step 7, the rules can be tested without SNES graphics. Copy the optional
+[test_game.c](tests/test_game.c) into a new `tests` directory in your learner
+project (not `src`, where the ROM build would discover it). Run these commands
+from your learner project's root.
 
-### Linux or macOS
-
-Use a C compiler available as `cc`:
+On Linux/macOS with a native C compiler:
 
 ```sh
 mkdir -p build
@@ -962,10 +1254,8 @@ cc -std=c89 -pedantic -Wall -Wextra -Werror -Isrc \
 ./build/test_game
 ```
 
-### Windows
-
-Open an **x64 Native Tools Command Prompt for Visual Studio**, then change into
-the repository directory and run:
+On Windows, open an **x64 Native Tools Command Prompt for Visual Studio**,
+change to your learner project, and run:
 
 ```bat
 if not exist build mkdir build
@@ -973,46 +1263,49 @@ cl /nologo /W4 /WX /Isrc /Fobuild\ /Febuild\test_game.exe tests\test_game.c src\
 build\test_game.exe
 ```
 
-The expected output is:
+Expected output:
 
 ```text
 PASS: 8 gameplay test groups
 ```
 
-Test binaries go into the Git-ignored build directory. The
-[GitHub Actions workflow](.github/workflows/test.yml) runs these gameplay tests
-on pushes and pull requests. It does not build the SNES ROM or replace emulator
-and hardware testing.
+The tests cover reset/launch, paddle limits, wall/brick collisions, gaps and
+corners, rebound zones, lives, scoring, winning, and restarting. They do not
+replace the emulator checkpoints for input, graphics, or timing.
+
+The repository's [GitHub Actions workflow](.github/workflows/test.yml) runs
+these tests against the finished reference on pushes and pull requests; it
+does not build a ROM.
+
+## Extend one thing at a time
+
+Once all checkpoints pass, try multiple level arrays, a paused state, better
+artwork, sound via the SDK's sound examples, background-based bricks, or PAL
+timing compensation. Make one change, rebuild, and repeat relevant tests.
+
+The optional [make_sprites.py](tools/make_sprites.py) regenerates the original
+sheet using Python's standard library; it is not needed for a normal build.
 
 ## Licensing
 
-[THIRD_PARTY_NOTICES.txt](THIRD_PARTY_NOTICES.txt) preserves the PVSnesLib notice
-for the library and built-in font linked into the ROM. It is not a license for
-the original tutorial, game source, or artwork. No project-wide license has been
-selected for those files.
-
----
+[THIRD_PARTY_NOTICES.txt](THIRD_PARTY_NOTICES.txt) preserves the PVSnesLib
+notice for the library and built-in font linked into the ROM. It is not a
+license for the original tutorial, source, or artwork. No project-wide license
+has been selected for those files.
 
 ## Official references
 
-The installation, build conventions, and library calls in this tutorial are
-based on these primary sources. The game rules and artwork are original to
-this example.
-
 - [PVSnesLib 4.6.0 release][release]
 - [Installation guide][installation]
-- [Compiling the Hello World example][hello]
-- [SNES ROM header configuration][header]
+- [Compiling Hello World][hello]
+- [ROM header configuration][header]
 - [Sprite and OAM API][sprites]
 - [Background API][backgrounds]
 - [Text console API][text]
 - [Controller input API][input]
-- [VBlank and interrupt behavior][interrupts]
+- [VBlank and interrupts][interrupts]
 - [gfx4snes options, pinned to 4.6.0][gfx]
-- [Official SimpleSprite example, pinned to 4.6.0][sprite-example]
-
-The project includes [third-party notices](THIRD_PARTY_NOTICES.txt) for the
-PVSnesLib code linked into the ROM.
+- [SimpleSprite example, pinned to 4.6.0][sprite-example]
 
 [release]: https://github.com/alekmaul/pvsneslib/releases/tag/4.6.0
 [installation]: https://github.com/alekmaul/pvsneslib/wiki/Installation
