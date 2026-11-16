@@ -286,6 +286,9 @@ Copy only [sprites.png](sprites.png) into your new project's root. Also copy
 for the PVSnesLib code/font that will be linked into the ROM. Take both files
 from your copy of this repository.
 
+<img width="938" height="147" alt="image" src="https://github.com/user-attachments/assets/b170c99a-0b09-403d-9710-ea8a90616833" />
+
+
 The original sheet is a 128-by-16 indexed PNG. Across the top are five brick
 colors, a paddle segment, and a ball. The lower eight rows are transparent.
 No graphics editor or Python installation is needed for this tutorial.
