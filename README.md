@@ -506,6 +506,9 @@ and it stops at both walls. There is still no ball and nothing to launch. If the
 paddle does not move, map controller 1 (the D-pad, B, and Start) in your
 emulator's input settings and click its window so that it receives the input.
 
+<img width="770" height="729" alt="image" src="https://github.com/user-attachments/assets/a87aa365-605b-4c9b-9f66-324ba34ac55d" />
+
+
 ---
 
 ## 3. Attach a ball and launch it
