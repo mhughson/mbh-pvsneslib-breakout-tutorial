@@ -253,6 +253,9 @@ Open **your new project's** `breakout.sfc` in the emulator.
 **Checkpoint:** a text-only screen says `MY FIRST BREAKOUT`. There is no
 paddle, ball, or game yet. You have built the first version yourself.
 
+<img width="770" height="729" alt="image" src="https://github.com/user-attachments/assets/6e5ef5b1-95f3-4b7b-93d3-5e2368dd265e" />
+
+
 ### Just enough graphics terminology
 
 The SNES assembles its picture from tiles, rather than drawing arbitrary
