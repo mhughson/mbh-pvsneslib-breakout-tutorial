@@ -1028,6 +1028,9 @@ make
 and rebound the ball; misses preserve the damage. Score is being accumulated,
 but is not displayed yet. Clearing the wall does not end play yet either.
 
+<img width="770" height="729" alt="image" src="https://github.com/user-attachments/assets/541d0559-2166-438c-bbf5-9db34542bdb3" />
+
+
 ---
 
 ## 7. Add lives, winning, and restarting
