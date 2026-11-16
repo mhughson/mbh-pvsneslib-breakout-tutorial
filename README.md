@@ -621,6 +621,9 @@ make
 launch position while the paddle can move away. This frozen launched ball is
 intentional; we have not written its movement yet.
 
+<img width="770" height="729" alt="image" src="https://github.com/user-attachments/assets/193de774-a885-4ece-ad7b-676b66ef90d7" />
+
+
 ---
 
 ## 4. Move the ball and bounce off walls
