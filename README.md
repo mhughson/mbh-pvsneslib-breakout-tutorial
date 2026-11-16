@@ -741,6 +741,9 @@ second before the ball falls, and from the left wall there is no side rebound
 at all. The left wall comes into play once step 5 lets the paddle send the ball
 left.
 
+<img width="770" height="729" alt="image" src="https://github.com/user-attachments/assets/c24b731f-ab87-412d-8835-2213afe23f93" />
+
+
 ---
 
 ## 5. Bounce off the paddle
