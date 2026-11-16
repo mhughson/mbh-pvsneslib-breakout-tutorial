@@ -18,7 +18,13 @@ version has one level and no sound. It is an original Breakout-style exercise.
 **Do not copy this repository's `src` folder into your project.** It contains
 the finished reference game, not your starting point. You will create your own
 source files below. You only need the supplied [sprites.png](sprites.png)
-artwork and [third-party notices](THIRD_PARTY_NOTICES.txt) from this repository.
+artwork and [third-party notices](THIRD_PARTY_NOTICES.txt) from this repository,
+plus, optionally, the [test file](tests/test_game.c) described at the end.
+
+To get those files, clone this repository or use GitHub's **Code** button and
+**Download ZIP**, and keep the copy outside your SDK folder. `sprites.png` and
+`THIRD_PARTY_NOTICES.txt` sit next to this README, and `test_game.c` is in its
+`tests` folder. The steps below say when to copy each one.
 
 The reference [main.c](src/main.c), [game.h](src/game.h), and
 [game.c](src/game.c) are available for comparison **after** you complete the
@@ -43,6 +49,11 @@ Keep the unmarked lines, remove lines starting with `-`, and add lines starting
 with `+`. Do not type those markers, the `---`/`+++` filenames, or the `@@`
 separators into your C files. Separate `@@` sections describe separate edits
 in the same file. A diff is an editing guide, not a complete file to paste.
+
+Prose names files with Windows-style backslashes (`src\main.c`), while diff
+headers and shell commands use forward slashes (`src/main.c`), which work on
+every operating system. Both mean the same file. Either kind of line ending
+(LF or Windows CRLF) is fine in your source files.
 
 Follow the steps in order; each edit assumes the previous checkpoint is done.
 There are no omitted function bodies to retrieve from the finished source.
@@ -69,35 +80,69 @@ See also [troubleshooting](#troubleshooting),
 
 ### Install and check PVSnesLib
 
-This tutorial targets **PVSnesLib 4.6.0**. Follow its
-[installation guide][installation] and download the [release archive][release]
-for your operating system, not GitHub's source-code archive.
+This tutorial targets **PVSnesLib 4.6.0**. Newer releases exist (4.7.1 was the
+latest when this tutorial was tested), so download the 4.6.0 archive for your
+operating system instead of following the "latest" link:
+
+| Operating system | Archive |
+|---|---|
+| Windows | [pvsneslib_460_64b_windows_release.zip][windows-zip] |
+| Linux | [pvsneslib_460_64b_linux_release.zip][linux-zip] |
+| macOS | [pvsneslib_460_64b_darwin_release.zip][macos-zip] |
+
+These prebuilt [release archives][release] contain the compiler and tools. Do
+not use GitHub's "Source code" download or a `git clone` of the repository
+instead: they hold only the sources, with no compiler in `devkitsnes\bin`.
+Also follow the official [installation guide][installation] for your operating
+system's prerequisites (for example, macOS needs `gnu-sed` from Homebrew).
+
+Later releases may work too: in one test, the finished game built and played
+correctly on 4.7.1 on Windows. But the steps below were written and checked
+against 4.6.0.
 
 On Windows, use **MSYS2 UCRT64** for the build commands, as recommended by the
-official guide. You can edit files in VS Code. Install Make if needed:
+official guide, whose MSYS2 section covers installing and updating it. Open its
+terminal from the Start menu entry named **MSYS2 UCRT64** (not "MSYS2 MSYS" or
+"MSYS2 MINGW64"). You can edit files in VS Code or any other editor. In that
+terminal, install Make if needed:
 
 ```sh
 pacman -S make
 ```
 
-Keep the SDK and project paths free of spaces. We will use this installation
-as an example; substitute the location of **your existing installation**:
+The guide also has you update MSYS2 first with `pacman -Suuy`. That update may
+close the terminal when it finishes; if it does, open a new MSYS2 UCRT64
+terminal and run the command again.
+
+Extract the archive to a path without spaces. It contains one top-level
+`pvsneslib` folder, which becomes your **SDK root**. This tutorial uses
+`C:\snesdev` as the example location; substitute your own:
 
 ```text
-C:\snesdev\pvsneslib\
-    devkitsnes\
-    pvsneslib\
-    snes-examples\
+C:\snesdev\pvsneslib\          <- the SDK root
+    devkitsnes\                compiler, linker, converters, build rules
+    pvsneslib\                 the library: headers and sources
+    snes-examples\             example projects; your project goes here
+    vscode-template\           optional VS Code project template
 ```
 
-The outer `pvsneslib` folder is the SDK root. The inner `pvsneslib` folder
-contains the library itself. Do not install another SDK inside this tutorial
-repository if you already have one.
+The SDK root is the folder that directly contains `devkitsnes`. The inner
+`pvsneslib` folder contains the library itself. If you extract into a folder
+that is itself called `pvsneslib`, the SDK root ends up one level deeper than
+you might expect. If you have already installed PVSnesLib 4.6.0, use that
+installation; do not install another SDK inside this tutorial repository.
 
 The shell commands below use MSYS2's `/c/...` spelling for a Windows `C:\...`
 path. This is the spelling expected by PVSnesLib's Make rules, even on Windows.
-On Linux/macOS, substitute your installation's absolute path and follow the
-official guide for prerequisites.
+On Linux/macOS, substitute your installation's absolute path.
+
+The official guide also suggests a permanent `PVSNESLIB_HOME` environment
+variable. This tutorial does not need one. If you have one, it must name the
+SDK root in the same `/c/...` form (a path with backslashes breaks the Make
+rules), and it overrides the default in your project's Makefile below. With the
+layout above that means `/c/snesdev/pvsneslib`; the guide's example value,
+`/c/snesdev`, would be one level too high. Open a new terminal after changing
+it.
 
 First prove the toolchain works:
 
@@ -107,9 +152,11 @@ export PVSNESLIB_HOME="$(pwd)"
 make -C snes-examples/hello_world
 ```
 
-Open the example's generated ROM in a SNES emulator.
-[Mesen](https://www.mesen.ca/) is one option. Configure controller 1 for the
-D-pad, B, and Start.
+This example prints a short `COMPILATION SUMMARY` that says
+`No warnings or errors found.`, followed by ROM and RAM usage. (The long output
+described below is what your own project prints.) The build creates
+`snes-examples/hello_world/hello_world.sfc`; open that ROM in a SNES emulator.
+[Mesen](https://www.mesen.ca/) is one option.
 
 **Checkpoint:** Hello World displays its text. Fix installation problems here,
 before writing the game. The official [Hello World walkthrough][hello] can help.
@@ -125,13 +172,15 @@ cd snes-examples/breakout
 
 If `breakout` already contains another project, use a different new directory
 name instead; do not overwrite it. Keep the same two-level nesting under the
-SDK root.
+SDK root. (The SDK's own, unrelated Breakout example lives deeper, at
+`snes-examples/systems/games/breakout`.)
 
 Your working directory is now `C:\snesdev\pvsneslib\snes-examples\breakout`.
 Every subsequent `make` command is run **here**, not in this repository and
 not in the SDK root. You can open this new directory in VS Code.
 
-Create `Makefile` in that directory:
+Create `Makefile` in that directory. Its name is exactly `Makefile`, with no
+extension (some editors, such as Notepad, quietly add `.txt`):
 
 ```make
 export PVSNESLIB_HOME ?= $(abspath $(CURDIR)/../..)
@@ -154,10 +203,12 @@ clean: cleanBuildRes cleanRom cleanGfx
 
 There are no command recipes in this first Makefile; the SDK supplies them.
 The default SDK path goes up two directories from your new project. An existing
-environment variable or command-line setting overrides it. Thus `make` also works in a new terminal
-without exporting the variable again, provided your project is in this layout.
+environment variable or command-line setting overrides it. Thus `make` also
+works in a new terminal without exporting the variable again, provided your
+project is in this layout.
 
-The SDK rules discover C and assembly files in `src`, compile them, and link a
+The SDK rules find the `.c` and `.asm` files in your project folder, in `src`,
+and in folders up to two levels below `src`; they compile those files and link a
 ROM. PVSnesLib 4.6.0 generates `hdr.asm` automatically; **do not write a custom
 ROM header**. See the [header guide][header].
 
@@ -191,6 +242,12 @@ Build:
 make
 ```
 
+The output is long, and the linker prints harmless messages such as
+`Label "SECTIONSTART_.rodata" was defined more than once` and
+`DISCARD: ... was discarded`. The build worked if the output ends with
+`Build finished successfully !` and `breakout.sfc` now exists. A real failure
+stops with an error message and never prints that line.
+
 Open **your new project's** `breakout.sfc` in the emulator.
 
 **Checkpoint:** a text-only screen says `MY FIRST BREAKOUT`. There is no
@@ -223,7 +280,8 @@ Sprites use pixel coordinates, but console text uses 8-by-8 character cells.
 
 Copy only [sprites.png](sprites.png) into your new project's root. Also copy
 [THIRD_PARTY_NOTICES.txt](THIRD_PARTY_NOTICES.txt) there to preserve the notice
-for the PVSnesLib code/font that will be linked into the ROM.
+for the PVSnesLib code/font that will be linked into the ROM. Take both files
+from your copy of this repository.
 
 The original sheet is a 128-by-16 indexed PNG. Across the top are five brick
 colors, a paddle segment, and a ball. The lower eight rows are transparent.
@@ -249,8 +307,9 @@ The new `$(GFXCONV)` command must start with a real **tab**, not spaces.
 The `clean` target still has no recipe of its own.
 
 The converter writes `sprites.pic` (1,024 bytes of tile data) and `sprites.pal`
-(32 bytes of palette data). `-R` preserves tile order, `-u 16` selects 4-bit
-pixels, `-o 16` outputs sixteen colors, and `-p` requests a palette.
+(32 bytes of palette data). It also writes `sprites.inc` and `sprites_data.as`,
+which this tutorial does not use. `-R` preserves tile order, `-u 16` selects
+4-bit pixels, `-o 16` outputs sixteen colors, and `-p` requests a palette.
 Do not deduplicate this sheet: our tile numbers depend on its layout.
 
 Create `src\data.asm`:
@@ -437,7 +496,9 @@ make
 ```
 
 **Checkpoint:** only a border and paddle appear. Left/Right moves the paddle,
-and it stops at both walls. There is still no ball and nothing to launch.
+and it stops at both walls. There is still no ball and nothing to launch. If the
+paddle does not move, map controller 1 (the D-pad, B, and Start) in your
+emulator's input settings and click its window so that it receives the input.
 
 ---
 
@@ -657,9 +718,16 @@ will be slower in real time until you add timing compensation.
 make
 ```
 
-**Checkpoint:** launch and watch the ball travel up/right and rebound off the
-top and side walls. It passes through the paddle for now, falls offscreen, and
-reattaches. No bricks should exist yet.
+**Checkpoint:** first move the paddle to the right wall, then press B or Start.
+The ball travels up and right, rebounds off the right wall, rebounds off the top
+wall, falls offscreen, and reattaches. It ignores the paddle for now. No bricks
+should exist yet.
+
+The ball always launches toward the right for now. If you launch from the
+centered paddle, the right-wall rebound happens down at paddle height, a split
+second before the ball falls, and from the left wall there is no side rebound
+at all. The left wall comes into play once step 5 lets the paddle send the ball
+left.
 
 ---
 
@@ -1193,7 +1261,8 @@ make
 
 Reopen the generated ROM, or reload it in the emulator. Test in this order:
 
-1. Before launching, move to both walls: paddle clamps; ball stays centered.
+1. Before launching, move to both walls: paddle clamps; ball stays centered on
+   the paddle.
 2. Press B/Start: the ball launches; holding it does not repeatedly launch.
 3. Watch left, right, and top wall rebounds.
 4. Hit a brick: it disappears, adds ten points, and cannot score again.
@@ -1218,8 +1287,10 @@ accurate emulators and real hardware when available before publishing a game.
 
 | Symptom | Check |
 |---|---|
-| SDK not found | Your project belongs at `<SDK root>\snes-examples\breakout`. The outer SDK root must contain `devkitsnes`, `pvsneslib`, and `snes-examples`. Check an existing `PVSNESLIB_HOME` override too. |
+| SDK not found | Your project belongs at `<SDK root>\snes-examples\breakout`. The SDK root (the folder that directly contains `devkitsnes`) must also contain `pvsneslib` and `snes-examples`. If `PVSNESLIB_HOME` is set in your environment, it overrides the Makefile default and must name that folder in `/c/...` form. |
 | Build cannot find shell utilities | Use MSYS2 UCRT64 on Windows and install GNU Make. |
+| `No targets specified and no makefile found` | Run `make` from your project directory; `ls` should list `Makefile`. Check that your editor did not save it as `Makefile.txt`. |
+| Many `Label ... defined more than once` or `DISCARD` lines | Harmless linker messages. The build succeeded if it ends with `Build finished successfully !`. |
 | `missing separator` | Makefile command recipes need tabs; do not paste diff markers. |
 | A malformed library path during linking | Keep paths free of spaces. Use an absolute MSYS2 SDK path, such as `/c/snesdev/pvsneslib`, not Windows backslashes in `PVSNESLIB_HOME`. |
 | Undefined function/field | Apply the steps in order; check the file and neighboring code named in the diff. |
@@ -1241,9 +1312,10 @@ in your `init_video` too. Do not upload 1,024 bytes from a smaller asset.
 ## Running the gameplay tests
 
 After step 7, the rules can be tested without SNES graphics. Copy the optional
-[test_game.c](tests/test_game.c) into a new `tests` directory in your learner
-project (not `src`, where the ROM build would discover it). Run these commands
-from your learner project's root.
+[test_game.c](tests/test_game.c) from your copy of this repository into a new
+`tests` directory in your learner project (not `src`, where the ROM build would
+discover it). Run these commands from your learner project's root. This part is
+optional and does not change your ROM.
 
 On Linux/macOS with a native C compiler:
 
@@ -1254,8 +1326,23 @@ cc -std=c89 -pedantic -Wall -Wextra -Werror -Isrc \
 ./build/test_game
 ```
 
-On Windows, open an **x64 Native Tools Command Prompt for Visual Studio**,
-change to your learner project, and run:
+On Windows you need a native C compiler, which neither the PVSnesLib toolchain
+nor a default MSYS2 install provides. Pick one of two options.
+
+**Option A: GCC from MSYS2** (the smaller download). In an MSYS2 UCRT64
+terminal, install it once:
+
+```sh
+pacman -S mingw-w64-ucrt-x86_64-gcc
+```
+
+Then, in the same terminal, change to your learner project and run the
+Linux/macOS commands above unchanged.
+
+**Option B: Microsoft's compiler.** Install the **Build Tools for Visual
+Studio** (or Visual Studio with the "Desktop development with C++" workload).
+Then open an **x64 Native Tools Command Prompt for Visual Studio**, change to
+your learner project, and run:
 
 ```bat
 if not exist build mkdir build
@@ -1268,6 +1355,9 @@ Expected output:
 ```text
 PASS: 8 gameplay test groups
 ```
+
+Microsoft's compiler also prints the names of the files it compiles and
+`Generating Code...` before that line.
 
 The tests cover reset/launch, paddle limits, wall/brick collisions, gaps and
 corners, rebound zones, lives, scoring, winning, and restarting. They do not
@@ -1299,22 +1389,30 @@ has been selected for those files.
 - [Installation guide][installation]
 - [Compiling Hello World][hello]
 - [ROM header configuration][header]
-- [Sprite and OAM API][sprites]
-- [Background API][backgrounds]
-- [Text console API][text]
-- [Controller input API][input]
-- [VBlank and interrupts][interrupts]
+- [Sprite and OAM API (`sprite.h`)][sprites]
+- [Background API (`background.h`)][backgrounds]
+- [Text console API (`textfont.h`)][text]
+- [Controller input API (`input.h`)][input]
+- [VBlank and interrupts (`interrupt.h`)][interrupts]
 - [gfx4snes options, pinned to 4.6.0][gfx]
 - [SimpleSprite example, pinned to 4.6.0][sprite-example]
 
+The header links are pinned to 4.6.0. The same headers are installed in
+`pvsneslib\include\snes` inside your SDK root. The generated
+[online API documentation](https://alekmaul.github.io/pvsneslib/api/)
+describes the latest release, which may differ from 4.6.0.
+
 [release]: https://github.com/alekmaul/pvsneslib/releases/tag/4.6.0
+[windows-zip]: https://github.com/alekmaul/pvsneslib/releases/download/4.6.0/pvsneslib_460_64b_windows_release.zip
+[linux-zip]: https://github.com/alekmaul/pvsneslib/releases/download/4.6.0/pvsneslib_460_64b_linux_release.zip
+[macos-zip]: https://github.com/alekmaul/pvsneslib/releases/download/4.6.0/pvsneslib_460_64b_darwin_release.zip
 [installation]: https://github.com/alekmaul/pvsneslib/wiki/Installation
 [hello]: https://github.com/alekmaul/pvsneslib/wiki/Compiling-helloworld-example
 [header]: https://github.com/alekmaul/pvsneslib/wiki/SNES-ROM-Header
-[sprites]: https://alekmaul.github.io/pvsneslib/sprite_8h.html
-[backgrounds]: https://alekmaul.github.io/pvsneslib/background_8h.html
-[text]: https://alekmaul.github.io/pvsneslib/textfont_8h.html
-[input]: https://alekmaul.github.io/pvsneslib/input_8h.html
-[interrupts]: https://alekmaul.github.io/pvsneslib/interrupt_8h.html
+[sprites]: https://github.com/alekmaul/pvsneslib/blob/4.6.0/pvsneslib/include/snes/sprite.h
+[backgrounds]: https://github.com/alekmaul/pvsneslib/blob/4.6.0/pvsneslib/include/snes/background.h
+[text]: https://github.com/alekmaul/pvsneslib/blob/4.6.0/pvsneslib/include/snes/textfont.h
+[input]: https://github.com/alekmaul/pvsneslib/blob/4.6.0/pvsneslib/include/snes/input.h
+[interrupts]: https://github.com/alekmaul/pvsneslib/blob/4.6.0/pvsneslib/include/snes/interrupt.h
 [gfx]: https://github.com/alekmaul/pvsneslib/blob/4.6.0/tools/gfx4snes/readme.md
 [sprite-example]: https://github.com/alekmaul/pvsneslib/tree/4.6.0/snes-examples/graphics/Sprites/SimpleSprite
