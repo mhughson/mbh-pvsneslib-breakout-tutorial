@@ -20,3 +20,9 @@ jobs:
             tests/test_game.c src/game.c -o build/test_game
       - name: Run gameplay tests
         run: ./build/test_game
+      - name: Compile Part 2 gameplay tests
+        run: |
+          cc -std=c89 -pedantic -Wall -Wextra -Werror -Ipart2/src \
+            part2/tests/test_game.c part2/src/game.c -o build/test_game_part2
+      - name: Run Part 2 gameplay tests
+        run: ./build/test_game_part2

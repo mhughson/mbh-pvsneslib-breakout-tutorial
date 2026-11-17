@@ -10,6 +10,8 @@ structs. You do not need assembly or prior SNES programming experience.
 By the end you will have a paddle, a bouncing ball, fifty colored bricks,
 scoring, three lives, and win/game-over screens with restarting. This first
 version has one level and no sound. It is an original Breakout-style exercise.
+When you finish, [Part 2](README-part2.md) adds dynamic sprite animations,
+background layers, tile-map bricks, music, and sound effects.
 
 ![What we are working toward](screenshots/ready.png)
 
@@ -1387,9 +1389,11 @@ does not build a ROM.
 
 ## Extend one thing at a time
 
-Once all checkpoints pass, try multiple level arrays, a paused state, better
-artwork, sound via the SDK's sound examples, background-based bricks, or PAL
-timing compensation. Make one change, rebuild, and repeat relevant tests.
+Once all checkpoints pass, continue with [Part 2](README-part2.md), which adds
+background layers, bricks stored in the tile map, animated dynamic sprites,
+music, and sound effects. After that, try multiple level arrays, a paused
+state, or PAL timing compensation. Make one change, rebuild, and repeat
+relevant tests.
 
 The optional [make_sprites.py](tools/make_sprites.py) regenerates the original
 sheet using Python's standard library; it is not needed for a normal build.
