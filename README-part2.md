@@ -39,10 +39,10 @@ project's root, next to `sprites.png`:
 
 | File | Size | Contents |
 |---|---|---|
-| `backdrop.png` | 256 x 256 | Four-color diamond pattern with a few stars |
-| `playfield.png` | 256 x 256 | HUD frame, side walls, and a gapless 14 x 5 wall of bricks |
-| `paddle.png` | 128 x 48 | Left, middle, and right paddle pieces, each with 6 animation frames |
-| `ball.png` | 128 x 8 | Sixteen 8 x 8 ball frames (6 used) |
+| [backdrop.png](part2/backdrop.png) | 256 x 256 | Four-color diamond pattern with a few stars |
+| [playfield.png](part2/playfield.png) | 256 x 256 | HUD frame, side walls, and a gapless 14 x 5 wall of bricks |
+| [paddle.png](part2/paddle.png) | 128 x 48 | Left, middle, and right paddle pieces, each with 6 animation frames |
+| [ball.png](part2/ball.png) | 128 x 8 | Sixteen 8 x 8 ball frames (6 used) |
 
 Keep `sprites.png` for now; section 4 stops using it.
 
