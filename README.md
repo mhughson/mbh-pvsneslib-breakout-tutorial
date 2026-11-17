@@ -11,7 +11,9 @@ By the end you will have a paddle, a bouncing ball, fifty colored bricks,
 scoring, three lives, and win/game-over screens with restarting. This first
 version has one level and no sound. It is an original Breakout-style exercise.
 When you finish, [Part 2](README-part2.md) adds dynamic sprite animations,
-background layers, tile-map bricks, music, and sound effects.
+background layers, tile-map bricks, music, and sound effects, and
+[Part 3](README-part3.md) adds a title screen, screen effects, pausing, a saved
+high score, and mouse control.
 
 ![What we are working toward](screenshots/ready.png)
 

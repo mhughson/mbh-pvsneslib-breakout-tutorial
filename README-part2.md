@@ -1593,6 +1593,10 @@ Only **now**, if you want to compare your work, open the finished reference
 Emulator testing is not proof of correct behavior on a physical SNES. Test with
 accurate emulators and real hardware before publishing a game.
 
+When every check passes, continue with [Part 3](README-part3.md), which adds a
+title screen, fades, an HDMA gradient, a mosaic effect, pausing, a saved high
+score, and mouse control.
+
 ## Troubleshooting
 
 | Symptom | Check |
