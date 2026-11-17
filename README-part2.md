@@ -150,7 +150,7 @@ By the end of this part, VRAM will hold this data:
 Tile addresses must be multiples of `0x1000`. Each 32 x 32 map takes `0x400`
 words, so the three maps sit side by side without overlapping.
 
-Colors live in **CGRAM**, a 256-entry palette memory. In Mode 1, BG3's 4-color
+Colors live in **CGRAM** (Color Generator RAM), a 256-entry (512 bytes) section of memory used for storing color palettes. In Mode 1, BG3's 4-color
 palette 0 uses colors 0 to 3, which are also the first colors of BG1's palette
 0. Part 1's font used palette 0. If it kept doing so, the backdrop and the
 font would overwrite each other's colors. So the font moves to palette 1
@@ -290,6 +290,8 @@ safe here because the screen is off.
 **Checkpoint:** Build and run. A dark blue diamond pattern with a few stars now
 fills the screen behind everything else. The text is still white and readable,
 and the `#` walls, bricks, paddle, and ball look and play exactly as before.
+
+![Part 2 after section 1: the new backdrop behind the Part 1 game](screenshots/part2-section1-backdrop.png)
 
 ---
 
@@ -556,6 +558,8 @@ five colors fills the top. The ball and paddle still use Part 1's sprites. Play
 for a moment: the ball bounces off bricks and the score goes up, but **the
 bricks do not disappear yet**. Section 3 fixes that.
 
+![Part 2 after section 2: the playfield, HUD, and all 70 bricks](screenshots/part2-section2-playfield.png)
+
 If you set up Part 1's optional gameplay tests, they now fail because they
 check the old layout. After section 5, replace them as described in
 [Running the gameplay tests](#running-the-gameplay-tests).
@@ -752,6 +756,8 @@ backdrop behind it, and adds ten points. Lose all three lives and restart: all
 70 bricks return. Clear the wall (it takes a while) and check for
 `YOU WIN!` and a score of `700`, then restart. Nothing should flicker, and no
 brick should be left behind.
+
+![Part 2 after section 3: broken bricks disappear and the score updates](screenshots/part2-section3-bricks-disappear.png)
 
 ---
 
@@ -1009,6 +1015,8 @@ and the ball is a small silver ball. Both move and collide exactly as before,
 and bricks still disappear and come back on restart. If the ball looks like a
 piece of the paddle, check its `OBJ_SIZES` attribute.
 
+![Part 2 after section 4: animated dynamic paddle and ball sprites](screenshots/part2-section4-dynamic-sprites.png)
+
 ---
 
 ## 5. Make the paddle and ball glimmer
@@ -1196,6 +1204,8 @@ runs along the paddle from left to right when the ball lands on it. Between
 hits, both look normal. The glimmer never starts on its own when the game
 boots.
 
+![Part 2 after section 5: the ball and paddle glimmer on impact](screenshots/part2-section5-glimmer.png)
+
 ---
 
 ## 6. Play music
@@ -1354,6 +1364,8 @@ responds to the controller a moment later. This happens once, at power-on.
 `res` folder with the two `.it` files and the generated soundbank. Run the
 ROM: music starts shortly after the game appears and keeps looping while you
 play. The game, glimmer, and bricks still work as in section 5.
+
+<video controls width="640" src="videos/part2-section6-music.mp4">Your browser does not support video playback. [Download the music demo](videos/part2-section6-music.mp4).</video>
 
 ---
 
@@ -1518,6 +1530,8 @@ after it:
 marimba sound on the paddle, a higher marimba on walls, and a cowbell on
 bricks, all over the music. Losing a life plays strings. Losing the last life
 stops the music with low strings. A new game brings the music back.
+
+<video controls width="640" src="videos/part2-section7-sound-effects.mp4">Your browser does not support video playback. [Download the sound-effects demo](videos/part2-section7-sound-effects.mp4).</video>
 
 ---
 
