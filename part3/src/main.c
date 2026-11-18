@@ -389,6 +389,8 @@ static void show_title(void)
     bgSetGfxPtr(1, 0x2000);
     bgSetMapPtr(1, 0x7400, SC_32x32);
     bgSetEnable(1);
+    format_score(high_score_text + 11, high_score);
+    consoleDrawText(9, 18, high_score_text);
     consoleDrawText(10, 22, "PRESS START");
     shown_mouse = -1;
     start_music();

@@ -312,8 +312,8 @@ screen will start the music instead, so remove that branch:
 ### Show each screen
 
 `init_video` should now only set up the hardware. The HUD label moves into
-`show_game`. Change the end of `init_video` and add the new functions right
-after it:
+`show_game`, and `main` will turn the screen on once the title is drawn.
+Change the end of `init_video` and add the new functions right after it:
 
 ```diff
 --- a/src/main.c
@@ -467,7 +467,8 @@ game starts:
 +    bgSetMapPtr(1, 0x7400, SC_32x32);
 +    bgSetEnable(1);
 -    consoleDrawText(10, 16, "PRESS START");
-     consoleDrawText(10, 22, "PRESS START");
++    consoleDrawText(10, 22, "PRESS START");
+     start_music();
 @@ static void show_game(void)
      screen = SCREEN_GAME;
      clear_text();
@@ -479,7 +480,8 @@ game starts:
   clearing them all takes `consoleDrawText` several frames, so it only clears
   row 1 (the HUD) and the even rows from 8 to 24, which are the only rows this
   game writes to.
-- `show_title` points background 2 at the logo, leaving the backdrop behind it.
+- `show_title` points background 2 at the logo, leaving the backdrop behind it,
+  and moves `PRESS START` below the logo.
 - `show_game` restores background 2's playfield tiles and map, then starts a
   fresh game. Setting the `shown_` values to -1 forces `draw_text` to redraw
   everything.
@@ -576,6 +578,10 @@ Then make `main` start on the title and call the right update each frame:
          spcProcess();
          oamInitDynamicSpriteEndFrame();
 ```
+
+`show_title` now starts the music, and `show_game` resets the game when you
+press Start. `init_video` no longer turns the screen on, so `main` must call
+`setScreenOn` after `show_title`. If you miss it, the screen stays black.
 
 **Checkpoint:** Build and run. The game boots to the starfield backdrop with
 the FAKEOUT logo and `PRESS START`, no walls, no bricks, no sprites, and music.
@@ -1293,6 +1299,7 @@ Show the record on the title, and reset the message for each new game:
 +    format_score(high_score_text + 11, high_score);
 +    consoleDrawText(9, 18, high_score_text);
      consoleDrawText(10, 22, "PRESS START");
+     start_music();
  }
 @@ static void show_game(void)
      game_reset(&game);
@@ -1639,7 +1646,8 @@ accurate emulators and real hardware before publishing a game.
 | `PADDLE_PIECES` compile errors | Every line of the macro except the last must end with `\`, with nothing after it. |
 | Paddle does not glimmer | Set `oambuffer[1].oamrefresh = 1` when the frame changes, and `shown_paddle_frame = -1` in `init_video`. |
 | Old text left on the title or game screen | Check `clear_text` clears row 1 and every even row from 8 to 24. |
-| Screen stays black after boot | Call `update_fade` every frame and `setBrightness(brightness)` right after `WaitForVBlank`. Set `brightness = 0` and `fade_step = 1` in `main`. |
+| Screen stays black (section 2) | In `main`, call `show_title()` and then `setScreenOn()` after `init_video()`. Section 2 removes `setScreenOn` from `init_video`. |
+| Screen stays black (section 3 onward) | Call `update_fade` every frame and `setBrightness(brightness)` right after `WaitForVBlank`. Set `brightness = 0` and `fade_step = 1` in `main`. |
 | A game starts immediately after returning to the title | Zero `held` and `pressed` while `fade_step` is not 0, and set `pressed = 0` after `fade_to(SCREEN_TITLE)`. |
 | No gradient | Call `init_gradient` after `setMode`. Check each entry is 5 bytes and the table ends with a 0. |
 | Gradient shows garbage colors or stripes | `gradient_table` must be a global or `static` array, not a local variable. |
