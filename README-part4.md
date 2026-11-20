@@ -58,6 +58,10 @@ ranges are standard diff metadata for each block's before/after versions, not
 editor line-number instructions; earlier edits, comments, and spacing can move
 your lines.
 
+When a step provides a complete function in a plain C block, replace the
+**entire named function**, from its signature through its final closing brace.
+Keep the other functions in that file unchanged.
+
 After each numbered section, build from your project folder in the
 **MSYS2 UCRT64 terminal**:
 
@@ -930,30 +934,69 @@ Edit `src\game.h` and `src\game.c`:
  }
  
  static void move_ball_y(Game *game)
-@@ -229,14 +239,20 @@ void game_tick(Game *game, int movement, int action_pressed)
-         return;
-     }
- 
--    /* Check each pixel, rather than jumping across a thin brick. */
-+    game->ball_fraction_x += magnitude(game->vx);
-+    game->ball_fraction_y += magnitude(game->vy);
-+    /* Spend sixteenths one pixel at a time, retaining the fractional part. */
-     for (step = 0; step < BALL_SUBSTEPS; ++step) {
--        if (step < magnitude(game->vx))
-+        if (game->ball_fraction_x >= BALL_UNIT) {
-+            game->ball_fraction_x -= BALL_UNIT;
-             move_ball_x(game);
-+        }
-         if (game->state != STATE_PLAYING)
-             return;
--        if (step < magnitude(game->vy))
-+        if (game->ball_fraction_y >= BALL_UNIT) {
-+            game->ball_fraction_y -= BALL_UNIT;
-             move_ball_y(game);
-+        }
-         if (game->state != STATE_PLAYING)
-             return;
-         if (game->ball_y >= FIELD_BOTTOM) {
+```
+
+### Replace the complete movement function
+
+The movement loop now needs braces around each axis's `if`, because each branch
+both spends a pixel's worth of units and attempts the move. Rather than splice
+those braces into the old loop, replace the **entire `game_tick` function** in
+`src\game.c` with this version. Do not replace the rest of the file.
+
+The state handling at the top is unchanged. The two accumulators are updated
+only after those early returns, so an attached ball or completed level does not
+build up movement. Each axis's move is followed by the existing state check,
+and the bottom-of-field check still handles a lost life.
+
+<!-- replace-function: src/game.c game_tick -->
+```c
+void game_tick(Game *game, int movement, int action_pressed)
+{
+    int step;
+
+    game->hits = 0;
+    if (game->state == STATE_LEVEL_CLEAR) {
+        if (action_pressed)
+            game_next_level(game);
+        return;
+    }
+    if (game->state == STATE_GAME_OVER || game->state == STATE_WON) {
+        if (action_pressed)
+            game_reset(game);
+        return;
+    }
+
+    game_move_paddle(game, movement * PADDLE_SPEED);
+
+    if (game->state == STATE_READY) {
+        attach_ball(game);
+        if (action_pressed)
+            game->state = STATE_PLAYING;
+        return;
+    }
+
+    game->ball_fraction_x += magnitude(game->vx);
+    game->ball_fraction_y += magnitude(game->vy);
+    /* Spend sixteenths one pixel at a time, retaining the fractional part. */
+    for (step = 0; step < BALL_SUBSTEPS; ++step) {
+        if (game->ball_fraction_x >= BALL_UNIT) {
+            game->ball_fraction_x -= BALL_UNIT;
+            move_ball_x(game);
+        }
+        if (game->state != STATE_PLAYING)
+            return;
+        if (game->ball_fraction_y >= BALL_UNIT) {
+            game->ball_fraction_y -= BALL_UNIT;
+            move_ball_y(game);
+        }
+        if (game->state != STATE_PLAYING)
+            return;
+        if (game->ball_y >= FIELD_BOTTOM) {
+            lose_life(game);
+            return;
+        }
+    }
+}
 ```
 
 **Checkpoint:** Build and run. Launching still moves the ball one pixel
@@ -1657,7 +1700,7 @@ They do not emulate the PPU, sound processor, SRAM, or mouse hardware.
 This section is for contributors working in **this repository**, not a learner
 working inside their SDK. The standard-library-only
 [checkpoint verifier](tools/verify_part4.py) applies the actual diff blocks
-above to the Part 3 source, checks that the result matches the finished Part 4
+and complete-function replacement above to the Part 3 source, checks that the result matches the finished Part 4
 source, and can build all seven intermediate ROMs. It does not read a second,
 hidden set of implementation snippets.
 

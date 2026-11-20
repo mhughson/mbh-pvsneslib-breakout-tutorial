@@ -60,6 +60,30 @@ def apply_diff(project, block):
         path.write_text("".join(result), newline="\n")
 
 
+def replace_function(project, name, function, code):
+    if name not in SOURCES or not name.endswith(".c"):
+        raise ValueError(f"Unexpected replacement path: {name}")
+    # Tutorial functions close at column zero; nested blocks are indented.
+    pattern = re.compile(
+        r"^(?:static )?(?:void|int) " + re.escape(function)
+        + r"\([^\n]*\)\n\{.*?^\}",
+        re.MULTILINE | re.DOTALL,
+    )
+    replacement = code.rstrip("\n")
+    if not pattern.fullmatch(replacement):
+        raise ValueError(f"Expected a complete {function} function in {name}")
+    path = project / name
+    original = path.read_text()
+    matches = list(pattern.finditer(original))
+    if len(matches) != 1:
+        raise ValueError(f"Expected exactly one {function} function in {name}")
+    match = matches[0]
+    path.write_text(
+        original[:match.start()] + replacement + original[match.end():],
+        newline="\n",
+    )
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, required=True)
@@ -86,11 +110,19 @@ def main():
             shutil.copyfile((previous or ROOT / "part3") / name, target)
         for image in (ROOT / "part4").glob("*.png"):
             shutil.copyfile(image, project / image.name)
-        blocks = re.findall(r"```diff\n(.*?)```", section, flags=re.DOTALL)
+        blocks = list(re.finditer(
+            r"```diff\n(?P<diff>.*?)```"
+            r"|<!-- replace-function: (?P<file>\S+) (?P<function>\w+) -->"
+            r"\s*```c\n(?P<code>.*?)```",
+            section, flags=re.DOTALL,
+        ))
         if not blocks:
             raise ValueError(f"Section {stage} has no edits")
         for block in blocks:
-            apply_diff(project, block)
+            if block["diff"] is not None:
+                apply_diff(project, block["diff"])
+            else:
+                replace_function(project, block["file"], block["function"], block["code"])
         if args.build:
             sdk = re.sub(
                 r"^([A-Za-z]):[/\\]",
