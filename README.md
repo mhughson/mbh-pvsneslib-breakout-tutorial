@@ -13,7 +13,8 @@ version has one level and no sound. It is an original Breakout-style exercise.
 When you finish, [Part 2](README-part2.md) adds dynamic sprite animations,
 background layers, tile-map bricks, music, and sound effects, and
 [Part 3](README-part3.md) adds a title screen, screen effects, pausing, a saved
-high score, and mouse control.
+high score, and mouse control. [Part 4](README-part4.md) adds scrolling,
+multiple levels, tougher bricks, finer ball angles, and a wide-paddle power-up.
 
 ![What we are working toward](screenshots/ready.png)
 

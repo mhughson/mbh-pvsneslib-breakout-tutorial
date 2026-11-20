@@ -1,0 +1,13 @@
+/res/
+/*.pic
+/*.pal
+/*.map
+/*.inc
+/*_data.as
+/hdr.asm
+/linkfile
+/breakout.sym
+/breakout.symfull
+/breakout.log
+/src/game.asm
+/src/main.asm

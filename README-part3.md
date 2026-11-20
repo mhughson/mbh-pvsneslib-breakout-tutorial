@@ -8,12 +8,13 @@ before moving on.
 **Want to see where you're going first?** Download the finished ROM,
 [part3/breakout.sfc](part3/breakout.sfc), and open it in your emulator. To try
 the mouse, connect a SNES Mouse to port 2 in your emulator's input settings
-(see [section 8](#8-steer-with-the-snes-mouse)).
+(see [section 9](#9-steer-with-the-snes-mouse)).
 
 By the end of this part your game will:
 
 - draw the three-piece paddle with a single **metasprite** call;
 - start on a **title screen** and return to it after each game;
+- show the **FAKEOUT logo** on the title;
 - **fade** to and from black between screens;
 - paint a **sky gradient** with HDMA, changing the background color down the
   screen;
@@ -23,6 +24,9 @@ By the end of this part your game will:
 - let you steer with the **SNES Mouse**.
 
 ![Part 3 in play](screenshots/part3-playing.png)
+
+When you finish, [Part 4](README-part4.md) adds scrolling, multiple levels,
+tougher bricks, finer ball angles, and collectible wide-paddle power-ups.
 
 ## Before you start
 
@@ -75,13 +79,14 @@ strangely after you edit the Makefile, run `make clean`, then `make`.
 
 1. [Draw the paddle as one metasprite](#1-draw-the-paddle-as-one-metasprite)
 2. [Add a title screen](#2-add-a-title-screen)
-3. [Fade between screens](#3-fade-between-screens)
-4. [Paint a sky gradient with HDMA](#4-paint-a-sky-gradient-with-hdma)
-5. [Pixelate the screen when a life is lost](#5-pixelate-the-screen-when-a-life-is-lost)
-6. [Pause with a dimmed overlay](#6-pause-with-a-dimmed-overlay)
-7. [Save the high score](#7-save-the-high-score)
-8. [Steer with the SNES Mouse](#8-steer-with-the-snes-mouse)
-9. [Test the finished game](#9-test-the-finished-game)
+3. [Put the FAKEOUT logo on the title](#3-put-the-fakeout-logo-on-the-title)
+4. [Fade between screens](#4-fade-between-screens)
+5. [Paint a sky gradient with HDMA](#5-paint-a-sky-gradient-with-hdma)
+6. [Pixelate the screen when a life is lost](#6-pixelate-the-screen-when-a-life-is-lost)
+7. [Pause with a dimmed overlay](#7-pause-with-a-dimmed-overlay)
+8. [Save the high score](#8-save-the-high-score)
+9. [Steer with the SNES Mouse](#9-steer-with-the-snes-mouse)
+10. [Test the finished game](#10-test-the-finished-game)
 
 See also [troubleshooting](#troubleshooting),
 [gameplay tests](#running-the-gameplay-tests), [licensing](#licensing), and
@@ -333,7 +338,7 @@ Change the end of `init_video` and add the new functions right after it:
 +
 +    /* consoleDrawText is slow, so only clear the rows we write to. */
 +    consoleDrawText(0, 1, "                                ");
-+    for (row = 8; row <= 22; row += 2)
++    for (row = 8; row <= 24; row += 2)
 +        consoleDrawText(0, row, "                                ");
 +}
 +
@@ -342,8 +347,8 @@ Change the end of `init_video` and add the new functions right after it:
 +    screen = SCREEN_TITLE;
 +    clear_text();
 +    bgSetDisable(1);
-+    consoleDrawText(12, 8, "BREAKOUT");
-+    consoleDrawText(10, 16, "PRESS START");
++    consoleDrawText(12, 8, "FAKEOUT");
++    consoleDrawText(10, 22, "PRESS START");
 +    start_music();
 +}
 +
@@ -364,127 +369,14 @@ Change the end of `init_video` and add the new functions right after it:
 (The diff moves the closing `}` of `init_video` up; the old one now closes
 `show_game`.)
 
-### Put the FAKEOUT logo on the title
-
-The logo uses 254 8 x 8 tiles and four 16-color SNES palettes. Copy
-[title-logo.png](part3/title-logo.png) into your project root. It is a
-transparent 256 x 224 indexed image, with the 256 x 112 logo positioned 16
-pixels from the top. The standalone
-[fakeout-logo.png](part3/fakeout-logo.png) is available if you want to use the
-art outside the game.
-
-![The SNES-ready FAKEOUT logo](part3/fakeout-logo.png)
-
-Convert the full-screen image into tiles, a map, and palettes. Add this rule
-to your Makefile and make the data object depend on the result:
-
-```diff
---- a/Makefile
-+++ b/Makefile
-@@
- backdrop.pic: backdrop.png
- 	$(GFXCONV) -s 8 -o 4 -u 4 -e 0 -p -m -t png -i $<
- 
--src/data.obj: paddle.pic ball.pic playfield.pic backdrop.pic
-+title-logo.pic: title-logo.png
-+	$(GFXCONV) -s 8 -o 64 -u 16 -e 3 -p -m -t png -i $<
-+
-+src/data.obj: paddle.pic ball.pic playfield.pic backdrop.pic title-logo.pic
-```
-
-In `src\data.asm`, add a separate asset section:
-
-```diff
---- a/src/data.asm
-+++ b/src/data.asm
-@@
- .incbin "playfield.pal"
- 
- .ends
-+
-+.section ".title_logo_assets" superfree
-+
-+title_logo_tiles:
-+.incbin "title-logo.pic"
-+title_logo_tiles_end:
-+
-+title_logo_map:
-+.incbin "title-logo.map"
-+
-+title_logo_palette:
-+.incbin "title-logo.pal"
-+
-+.ends
-```
-
-Declare the assets in `src\main.c`:
-
-```diff
---- a/src/main.c
-+++ b/src/main.c
-@@
- extern u8 playfield_tiles[], playfield_tiles_end[];
- extern u16 playfield_map[];
- extern u8 playfield_palette[];
-+extern u8 title_logo_tiles[], title_logo_tiles_end[];
-+extern u8 title_logo_map[], title_logo_palette[];
-```
-
-Upload the logo tiles and palettes, and put its 32 x 28 tile map at `0x7400`,
-while the screen is off in `init_video`:
-
-```diff
---- a/src/main.c
-+++ b/src/main.c
-@@ static void init_video(void)
-     bgSetGfxPtr(0, 0x3000);
-     bgSetMapPtr(0, 0x6800, SC_32x32);
-+    bgInitTileSet(1, title_logo_tiles, title_logo_palette, 3,
-+                  title_logo_tiles_end - title_logo_tiles, 64 * 2,
-+                  BG_16COLORS, 0x2000);
-+    dmaCopyVram(title_logo_map, 0x7400, 32 * 28 * 2);
-     bgInitTileSet(1, playfield_tiles, playfield_palette, 2,
-                   playfield_tiles_end - playfield_tiles, 16 * 2,
-                   BG_16COLORS, 0x4000);
-```
-
-The logo uses BG2's graphics base `0x2000`; palettes 3 through 6 are reserved
-for it. Switch BG2 to the logo on the title and restore the playfield when a
-game starts:
-
-```diff
---- a/src/main.c
-+++ b/src/main.c
-@@ static void clear_text(void)
--    for (row = 8; row <= 22; row += 2)
-+    for (row = 8; row <= 24; row += 2)
-@@ static void show_title(void)
-     screen = SCREEN_TITLE;
-     clear_text();
--    bgSetDisable(1);
--    consoleDrawText(12, 8, "BREAKOUT");
-+    bgSetGfxPtr(1, 0x2000);
-+    bgSetMapPtr(1, 0x7400, SC_32x32);
-+    bgSetEnable(1);
--    consoleDrawText(10, 16, "PRESS START");
-+    consoleDrawText(10, 22, "PRESS START");
-     start_music();
-@@ static void show_game(void)
-     screen = SCREEN_GAME;
-     clear_text();
-+    bgSetGfxPtr(1, 0x4000);
-+    bgSetMapPtr(1, PLAYFIELD_MAP, SC_32x32);
-     bgSetEnable(1);
-```
 - `clear_text` erases the old screen's text. The text layer has 28 rows, but
   clearing them all takes `consoleDrawText` several frames, so it only clears
-  row 1 (the HUD) and the even rows from 8 to 24, which are the only rows this
-  game writes to.
-- `show_title` points background 2 at the logo, leaving the backdrop behind it,
-  and moves `PRESS START` below the logo.
-- `show_game` restores background 2's playfield tiles and map, then starts a
-  fresh game. Setting the `shown_` values to -1 forces `draw_text` to redraw
-  everything.
+  row 1 (the HUD) and the even rows from 8 to 24. The finished game writes
+  text only on those rows.
+- `show_title` turns off background 2, which holds the walls and bricks. Only
+  the backdrop stays behind the title text.
+- `show_game` turns background 2 back on and starts a fresh game. Setting the
+  `shown_` values to -1 forces `draw_text` to redraw everything.
 
 The title draws no sprites. The dynamic sprite engine hides any sprite you do
 not draw in a frame, so the paddle and ball disappear on their own.
@@ -584,16 +476,154 @@ press Start. `init_video` no longer turns the screen on, so `main` must call
 `setScreenOn` after `show_title`. If you miss it, the screen stays black.
 
 **Checkpoint:** Build and run. The game boots to the starfield backdrop with
-the FAKEOUT logo and `PRESS START`, no walls, no bricks, no sprites, and music.
-Press Start: the playfield, HUD, paddle, and ball appear, ready to launch. Lose
-all lives (or win): `GAME OVER` / `B / START: CONTINUE`. Press B or Start to go
-back to the logo, and Start again for a fresh game with all 70 bricks.
+`FAKEOUT` and `PRESS START` in plain text, no walls, no bricks, no sprites, and
+music. Press Start: the playfield, HUD, paddle, and ball appear, ready to
+launch. Lose all lives (or win): `GAME OVER` / `B / START: CONTINUE`. Press B
+or Start to go back to the title, and Start again for a fresh game with all 70
+bricks.
 
-![Part 3 after section 2: the new title screen](screenshots/part3-section2-title.png)
+![Part 3 after section 2: the plain text title screen](screenshots/part3-section2-text-title.png)
 
 ---
 
-## 3. Fade between screens
+## 3. Put the FAKEOUT logo on the title
+
+The text title works, but the game deserves a logo. The title screen turns off
+background 2 because that layer holds the walls and bricks. That layer can show
+a full-screen logo instead, as long as each game switches it back to the
+playfield.
+
+### Convert the logo
+
+The logo uses 254 8 x 8 tiles and four 16-color SNES palettes. Copy
+[title-logo.png](part3/title-logo.png) into your project root. It is a
+transparent 256 x 224 indexed image, with the 256 x 112 logo positioned 16
+pixels from the top. The standalone
+[fakeout-logo.png](part3/fakeout-logo.png) is available if you want to use the
+art outside the game.
+
+![The SNES-ready FAKEOUT logo](part3/fakeout-logo.png)
+
+Convert the full-screen image into tiles, a map, and palettes. Add this rule
+to your Makefile and make the data object depend on the result:
+
+```diff
+--- a/Makefile
++++ b/Makefile
+@@
+ backdrop.pic: backdrop.png
+ 	$(GFXCONV) -s 8 -o 4 -u 4 -e 0 -p -m -t png -i $<
+ 
+-src/data.obj: paddle.pic ball.pic playfield.pic backdrop.pic
++title-logo.pic: title-logo.png
++	$(GFXCONV) -s 8 -o 64 -u 16 -e 3 -p -m -t png -i $<
++
++src/data.obj: paddle.pic ball.pic playfield.pic backdrop.pic title-logo.pic
+```
+
+### Load the logo
+
+In `src\data.asm`, add a separate asset section:
+
+```diff
+--- a/src/data.asm
++++ b/src/data.asm
+@@
+ .incbin "playfield.pal"
+ 
+ .ends
++
++.section ".title_logo_assets" superfree
++
++title_logo_tiles:
++.incbin "title-logo.pic"
++title_logo_tiles_end:
++
++title_logo_map:
++.incbin "title-logo.map"
++
++title_logo_palette:
++.incbin "title-logo.pal"
++
++.ends
+```
+
+Declare the assets in `src\main.c`:
+
+```diff
+--- a/src/main.c
++++ b/src/main.c
+@@
+ extern u8 playfield_tiles[], playfield_tiles_end[];
+ extern u16 playfield_map[];
+ extern u8 playfield_palette[];
++extern u8 title_logo_tiles[], title_logo_tiles_end[];
++extern u8 title_logo_map[], title_logo_palette[];
+```
+
+Upload the logo tiles and palettes, and put its 32 x 28 tile map at `0x7400`,
+while the screen is off in `init_video`:
+
+```diff
+--- a/src/main.c
++++ b/src/main.c
+@@ static void init_video(void)
+     bgSetGfxPtr(0, 0x3000);
+     bgSetMapPtr(0, 0x6800, SC_32x32);
++    bgInitTileSet(1, title_logo_tiles, title_logo_palette, 3,
++                  title_logo_tiles_end - title_logo_tiles, 64 * 2,
++                  BG_16COLORS, 0x2000);
++    dmaCopyVram(title_logo_map, 0x7400, 32 * 28 * 2);
+     bgInitTileSet(1, playfield_tiles, playfield_palette, 2,
+                   playfield_tiles_end - playfield_tiles, 16 * 2,
+                   BG_16COLORS, 0x4000);
+```
+
+The logo's tiles fill `0x2000`, the tile slot Part 2 left free, and its map
+goes at `0x7400`, right after the backdrop map. Palettes 3 through 6 are
+reserved for it.
+
+### Switch background 2 between screens
+
+On the title, point background 2 at the logo instead of turning it off. When a
+game starts, point it back at the playfield:
+
+```diff
+--- a/src/main.c
++++ b/src/main.c
+@@ static void show_title(void)
+     screen = SCREEN_TITLE;
+     clear_text();
+-    bgSetDisable(1);
+-    consoleDrawText(12, 8, "FAKEOUT");
++    bgSetGfxPtr(1, 0x2000);
++    bgSetMapPtr(1, 0x7400, SC_32x32);
++    bgSetEnable(1);
+     consoleDrawText(10, 22, "PRESS START");
+     start_music();
+@@ static void show_game(void)
+     screen = SCREEN_GAME;
+     clear_text();
++    bgSetGfxPtr(1, 0x4000);
++    bgSetMapPtr(1, PLAYFIELD_MAP, SC_32x32);
+     bgSetEnable(1);
+```
+
+`init_video` already uploaded both pictures, so switching screens only changes
+where background 2 reads its tiles and map. The logo replaces the `FAKEOUT`
+text, and the backdrop still shows through its transparent pixels.
+
+**Checkpoint:** Build and run. The title shows the FAKEOUT logo above
+`PRESS START`, in front of the starfield backdrop, with music and no sprites.
+Press Start: the walls, bricks, and HUD appear as before. When the game is
+over, press B or Start: the logo comes back, and Start begins a fresh game with
+all 70 bricks.
+
+![Part 3 after section 3: the FAKEOUT logo on the title screen](screenshots/part3-section3-logo.png)
+
+---
+
+## 4. Fade between screens
 
 ### Brightness and forced blank
 
@@ -727,11 +757,11 @@ title fades out, and the game fades in. When the game is over, press B or
 Start: the paddle and ball stay visible while the screen fades out, then the
 title fades in. Pressing buttons during a fade does nothing.
 
-![The FAKEOUT title partway through its fade-in after section 3](screenshots/part3-section3-fade.png)
+![The FAKEOUT title partway through its fade-in after section 4](screenshots/part3-section4-fade.png)
 
 ---
 
-## 4. Paint a sky gradient with HDMA
+## 5. Paint a sky gradient with HDMA
 
 ### What HDMA does
 
@@ -830,13 +860,13 @@ add other HDMA effects later, give them a different channel.
 **Checkpoint:** Build and run. The backdrop color is no longer flat: the space
 behind the diamond pattern and stars is dark navy at the top and fades to
 purple at the bottom, on both the title and the game screen. The fades from
-section 3 darken the gradient too.
+section 4 darken the gradient too.
 
-![Part 3 after section 4: an HDMA gradient behind the playfield](screenshots/part3-section4-gradient.png)
+![Part 3 after section 5: an HDMA gradient behind the playfield](screenshots/part3-section5-gradient.png)
 
 ---
 
-## 5. Pixelate the screen when a life is lost
+## 6. Pixelate the screen when a life is lost
 
 ### The mosaic register
 
@@ -943,11 +973,11 @@ sharpen back to normal over the next quarter second. The paddle and ball stay
 sharp. The same happens when the last life is lost, behind `GAME OVER`.
 Nothing pixelates when the ball hits a wall, brick, or the paddle.
 
-![Part 3 after section 5: the mosaic effect after a missed ball](screenshots/part3-section5-mosaic.png)
+![Part 3 after section 6: the mosaic effect after a missed ball](screenshots/part3-section6-mosaic.png)
 
 ---
 
-## 6. Pause with a dimmed overlay
+## 7. Pause with a dimmed overlay
 
 ### Color math
 
@@ -1112,11 +1142,11 @@ and ball stay bright. The D-pad does nothing. Press Start again: the screen
 brightens, the music continues where it stopped, and the ball carries on from
 the same place.
 
-![Part 3 after section 6: the paused game behind a dimmed overlay](screenshots/part3-section6-pause.png)
+![Part 3 after section 7: the paused game behind a dimmed overlay](screenshots/part3-section7-pause.png)
 
 ---
 
-## 7. Save the high score
+## 8. Save the high score
 
 ### Battery-backed save RAM
 
@@ -1341,11 +1371,11 @@ Emulators keep save RAM in a file, usually with the extension `.srm`. Most
 write it when you close the game or the emulator. To reset the high score,
 delete that file while the game is closed.
 
-![Part 3 after section 7: the title shows the saved high score](screenshots/part3-section7-high-score.png)
+![Part 3 after section 8: the title shows the saved high score](screenshots/part3-section8-high-score.png)
 
 ---
 
-## 8. Steer with the SNES Mouse
+## 9. Steer with the SNES Mouse
 
 ### How the mouse is read
 
@@ -1550,12 +1580,12 @@ The controller still works with a mouse connected, and the game works without
 a mouse.
 
 **Checkpoint:** Build and run with **no** mouse connected. Everything works as
-in section 7, and the title does not mention the mouse. Connect a mouse to port
+in section 8, and the title does not mention the mouse. Connect a mouse to port
 2: the title shows `OR CLICK THE MOUSE`. Left-click to start, move the mouse to
 steer the paddle (it stops at both walls), left-click to launch, and
 right-click to pause and resume. The D-pad still works too.
 
-![Part 3 after section 8: the title with a mouse connected](screenshots/part3-section8-mouse.png)
+![Part 3 after section 9: the title with a mouse connected](screenshots/part3-section9-mouse.png)
 
 If you set up the gameplay tests, add a test for the new function to
 `tests\test_game.c`:
@@ -1598,7 +1628,7 @@ If you set up the gameplay tests, add a test for the new function to
 
 ---
 
-## 9. Test the finished game
+## 10. Test the finished game
 
 Your project folder has the same files as at the end of
 [Part 2](README-part2.md#8-test-the-finished-game). Your emulator may also
@@ -1646,8 +1676,8 @@ accurate emulators and real hardware before publishing a game.
 | `PADDLE_PIECES` compile errors | Every line of the macro except the last must end with `\`, with nothing after it. |
 | Paddle does not glimmer | Set `oambuffer[1].oamrefresh = 1` when the frame changes, and `shown_paddle_frame = -1` in `init_video`. |
 | Old text left on the title or game screen | Check `clear_text` clears row 1 and every even row from 8 to 24. |
-| Screen stays black (section 2) | In `main`, call `show_title()` and then `setScreenOn()` after `init_video()`. Section 2 removes `setScreenOn` from `init_video`. |
-| Screen stays black (section 3 onward) | Call `update_fade` every frame and `setBrightness(brightness)` right after `WaitForVBlank`. Set `brightness = 0` and `fade_step = 1` in `main`. |
+| Screen stays black (sections 2 and 3) | In `main`, call `show_title()` and then `setScreenOn()` after `init_video()`. Section 2 removes `setScreenOn` from `init_video`. |
+| Screen stays black (section 4 onward) | Call `update_fade` every frame and `setBrightness(brightness)` right after `WaitForVBlank`. Set `brightness = 0` and `fade_step = 1` in `main`. |
 | A game starts immediately after returning to the title | Zero `held` and `pressed` while `fade_step` is not 0, and set `pressed = 0` after `fade_to(SCREEN_TITLE)`. |
 | No gradient | Call `init_gradient` after `setMode`. Check each entry is 5 bytes and the table ends with a 0. |
 | Gradient shows garbage colors or stripes | `gradient_table` must be a global or `static` array, not a local variable. |
@@ -1664,7 +1694,7 @@ accurate emulators and real hardware before publishing a game.
 
 ## Running the gameplay tests
 
-If you added the test in section 8, run exactly the commands from
+If you added the test in section 9, run exactly the commands from
 [Running the gameplay tests](README.md#running-the-gameplay-tests) in Part 1.
 You can also copy [part3/tests/test_game.c](part3/tests/test_game.c) from your
 copy of this repository over your project's `tests\test_game.c`. The expected
