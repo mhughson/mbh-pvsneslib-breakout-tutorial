@@ -52,6 +52,12 @@ remove `-` lines, and add `+` lines. Do not type the markers, filenames, or
 `@@` lines. Apply the blocks in order. Separate `@@` hunks are separate edits
 in the named file; each block includes the surrounding code.
 
+The function name or placement note after the closing `@@` tells you **where
+to edit**. Find that named location and match the surrounding code. The numeric
+ranges are standard diff metadata for each block's before/after versions, not
+editor line-number instructions; earlier edits, comments, and spacing can move
+your lines.
+
 After each numbered section, build from your project folder in the
 **MSYS2 UCRT64 terminal**:
 
@@ -110,7 +116,7 @@ other PPU updates:
 ```diff
 --- a/src/main.c
 +++ b/src/main.c
-@@ -97,6 +97,7 @@
+@@ -97,6 +97,7 @@ File-scope variables: after shown_mouse
  static int mouse_port;
  static int mouse_dx;
  static int shown_mouse;
@@ -118,7 +124,7 @@ other PPU updates:
  
  static void prepare_bricks(void)
  {
-@@ -385,6 +386,7 @@
+@@ -385,6 +386,7 @@ static void show_title(void)
  static void show_title(void)
  {
      screen = SCREEN_TITLE;
@@ -126,7 +132,7 @@ other PPU updates:
      clear_text();
      bgSetGfxPtr(1, 0x2000);
      bgSetMapPtr(1, 0x7400, SC_32x32);
-@@ -399,6 +401,7 @@
+@@ -399,6 +401,7 @@ static void show_game(void)
  static void show_game(void)
  {
      screen = SCREEN_GAME;
@@ -134,7 +140,7 @@ other PPU updates:
      clear_text();
      bgSetGfxPtr(1, 0x4000);
      bgSetMapPtr(1, PLAYFIELD_MAP, SC_32x32);
-@@ -492,6 +495,7 @@
+@@ -492,6 +495,7 @@ static void update_title(u16 pressed)
  {
      int connected;
  
@@ -142,7 +148,7 @@ other PPU updates:
      connected = mouse_port >= 0;
      if (shown_mouse != connected) {
          if (connected)
-@@ -575,6 +579,7 @@
+@@ -575,6 +579,7 @@ int main(void)
          spcProcess();
          oamInitDynamicSpriteEndFrame();
          WaitForVBlank();
@@ -191,7 +197,7 @@ Make these edits to `src\game.h` and `src\game.c`:
 ```diff
 --- a/src/game.h
 +++ b/src/game.h
-@@ -24,12 +24,14 @@
+@@ -24,12 +24,14 @@ File scope: HIT_* constants and enum GameState
  #define HIT_WALL 1
  #define HIT_PADDLE 2
  #define HIT_BRICK 4
@@ -207,7 +213,7 @@ Make these edits to `src\game.h` and `src\game.c`:
  };
  
  typedef struct Game {
-@@ -43,10 +45,12 @@
+@@ -43,10 +45,12 @@ struct Game and function declarations below it
      int bricks_left;
      int state;
      int hits;
@@ -225,7 +231,7 @@ Make these edits to `src\game.h` and `src\game.c`:
 ```diff
 --- a/src/game.c
 +++ b/src/game.c
-@@ -1,4 +1,28 @@
+@@ -1,4 +1,28 @@ File scope: add levels after #include "game.h"
  #include "game.h"
 +
 +static const char levels[LEVEL_COUNT][BRICK_ROWS][BRICK_COLS + 1] = {
@@ -254,7 +260,7 @@ Make these edits to `src\game.h` and `src\game.c`:
  
  static int magnitude(int value)
  {
-@@ -15,19 +39,42 @@
+@@ -15,19 +39,42 @@ After attach_ball: replace game_reset; add load_level and game_next_level
      game->vy = -3;
  }
  
@@ -306,7 +312,7 @@ Make these edits to `src\game.h` and `src\game.c`:
  }
  
  static int hit_brick(Game *game, int x, int y)
-@@ -65,8 +112,12 @@
+@@ -65,8 +112,12 @@ static int hit_brick(Game *game, int x, int y)
                  game->bricks[index] = 0;
                  game->score += 10;
                  --game->bricks_left;
@@ -321,7 +327,7 @@ Make these edits to `src\game.h` and `src\game.c`:
                  return 1;
              }
          }
-@@ -142,7 +193,7 @@
+@@ -142,7 +193,7 @@ void game_move_paddle(Game *game, int dx)
  
  void game_move_paddle(Game *game, int dx)
  {
@@ -330,7 +336,7 @@ Make these edits to `src\game.h` and `src\game.c`:
          return;
      game->paddle_x += dx;
      if (game->paddle_x < FIELD_LEFT)
-@@ -156,6 +207,11 @@
+@@ -156,6 +207,11 @@ void game_tick(Game *game, int movement, int action_pressed)
      int step;
  
      game->hits = 0;
@@ -366,7 +372,7 @@ Update `src\main.c`:
 ```diff
 --- a/src/main.c
 +++ b/src/main.c
-@@ -74,10 +74,11 @@
+@@ -74,10 +74,11 @@ File-scope variables: score buffers and display caches
  static unsigned char row_changed[BRICK_ROWS];
  static unsigned char shown_alive[BRICK_COUNT];
  static u8 gradient_table[GRADIENT_BANDS * 5 + 1];
@@ -381,7 +387,7 @@ Update `src\main.c`:
  static int shown_score = -1;
  static int shown_lives = -1;
  static int shown_state = -1;
-@@ -106,9 +107,6 @@
+@@ -106,9 +107,6 @@ static void prepare_bricks(void)
      int col;
      int tile;
  
@@ -391,7 +397,7 @@ Update `src\main.c`:
      index = 0;
      for (row = 0; row < BRICK_ROWS; ++row) {
          tile = (BRICK_TILE_Y + row) * 32 + BRICK_TILE_X;
-@@ -127,7 +125,6 @@
+@@ -127,7 +125,6 @@ static void prepare_bricks(void)
              ++index;
          }
      }
@@ -399,7 +405,7 @@ Update `src\main.c`:
  }
  
  static void upload_bricks(void)
-@@ -148,9 +145,11 @@
+@@ -148,9 +145,11 @@ static void format_score(char *text, unsigned int score)
  
  static void format_score(char *text, unsigned int score)
  {
@@ -414,7 +420,7 @@ Update `src\main.c`:
  }
  
  static void draw_text(void)
-@@ -164,6 +163,11 @@
+@@ -164,6 +163,11 @@ static void draw_text(void)
          lives_text[0] = '0' + game.lives;
          consoleDrawText(20, 1, lives_text);
          shown_lives = game.lives;
@@ -426,7 +432,7 @@ Update `src\main.c`:
      }
  
      if (shown_state == game.state && shown_paused == paused)
-@@ -180,6 +184,9 @@
+@@ -180,6 +184,9 @@ static void draw_text(void)
      } else if (game.state == STATE_GAME_OVER) {
          consoleDrawText(11, 18, "GAME OVER");
          consoleDrawText(7, 20, "B / START: CONTINUE");
@@ -436,7 +442,7 @@ Update `src\main.c`:
      } else if (game.state == STATE_WON) {
          consoleDrawText(12, 18, "YOU WIN!");
          consoleDrawText(7, 20, "B / START: CONTINUE");
-@@ -258,6 +265,8 @@
+@@ -258,6 +265,8 @@ static void play_sounds(int old_state)
              play_effect(SFX_STRINGS, 2);
          } else if (game.state == STATE_WON) {
              spcStop();
@@ -445,7 +451,7 @@ Update `src\main.c`:
              play_effect(SFX_TADA, 4);
          } else if (old_state == STATE_PLAYING) {
              play_effect(SFX_STRINGS, 3);
-@@ -369,8 +378,7 @@
+@@ -369,8 +378,7 @@ static void init_video(void)
                  playfield_map[(BRICK_TILE_Y + row) * 32 + BRICK_TILE_X + col];
      }
      for (i = 0; i < BRICK_COUNT; ++i)
@@ -455,7 +461,7 @@ Update `src\main.c`:
  }
  
  static void clear_text(void)
-@@ -392,7 +400,7 @@
+@@ -392,7 +400,7 @@ static void show_title(void)
      bgSetMapPtr(1, 0x7400, SC_32x32);
      bgSetEnable(1);
      format_score(high_score_text + 11, high_score);
@@ -464,7 +470,7 @@ Update `src\main.c`:
      consoleDrawText(10, 22, "PRESS START");
      shown_mouse = -1;
      start_music();
-@@ -412,7 +420,8 @@
+@@ -412,7 +420,8 @@ static void show_game(void)
      shown_score = -1;
      shown_lives = -1;
      shown_state = -1;
@@ -542,7 +548,7 @@ Replace the screen-switching and loop code in `src\main.c` as follows:
 ```diff
 --- a/src/main.c
 +++ b/src/main.c
-@@ -2,7 +2,7 @@
+@@ -2,7 +2,7 @@ File-scope constants: PLAYFIELD_MAP
  #include "game.h"
  #include "res/soundbank.h"
  
@@ -551,7 +557,7 @@ Replace the screen-switching and loop code in `src\main.c` as follows:
  #define BACKDROP_MAP 0x7000
  #define EMPTY_TILE 0x0800
  #define BRICK_TILE_X (BRICK_X / 8)
-@@ -15,6 +15,8 @@
+@@ -15,6 +15,8 @@ File-scope constants: after MOSAIC_FRAMES
  #define GRADIENT_LINES 8
  
  #define MOSAIC_FRAMES 30
@@ -560,7 +566,7 @@ Replace the screen-switching and loop code in `src\main.c` as follows:
  
  #define SAVE_MAGIC 0x4B42
  
-@@ -33,7 +35,8 @@
+@@ -33,7 +35,8 @@ enum Screen
  
  enum Screen {
      SCREEN_TITLE,
@@ -570,7 +576,7 @@ Replace the screen-switching and loop code in `src\main.c` as follows:
  };
  
  typedef struct SaveData {
-@@ -99,6 +102,8 @@
+@@ -99,6 +102,8 @@ File-scope variables: after backdrop_scroll
  static int mouse_dx;
  static int shown_mouse;
  static int backdrop_scroll;
@@ -579,7 +585,7 @@ Replace the screen-switching and loop code in `src\main.c` as follows:
  
  static void prepare_bricks(void)
  {
-@@ -170,6 +175,8 @@
+@@ -170,6 +175,8 @@ static void draw_text(void)
          shown_level = game.level;
      }
  
@@ -588,7 +594,7 @@ Replace the screen-switching and loop code in `src\main.c` as follows:
      if (shown_state == game.state && shown_paused == paused)
          return;
  
-@@ -356,6 +363,9 @@
+@@ -356,6 +363,9 @@ static void init_video(void)
                    BG_16COLORS, 0x4000);
      bgInitMapSet(1, (u8 *)playfield_map, 32 * 32 * 2, SC_32x32,
                   PLAYFIELD_MAP);
@@ -598,7 +604,7 @@ Replace the screen-switching and loop code in `src\main.c` as follows:
      bgInitTileSet(2, backdrop_tiles, backdrop_palette, 0,
                    backdrop_tiles_end - backdrop_tiles, 4 * 2,
                    BG_4COLORS, 0x5000);
-@@ -395,6 +405,8 @@
+@@ -395,6 +405,8 @@ static void show_title(void)
  {
      screen = SCREEN_TITLE;
      backdrop_scroll = 0;
@@ -607,7 +613,7 @@ Replace the screen-switching and loop code in `src\main.c` as follows:
      clear_text();
      bgSetGfxPtr(1, 0x2000);
      bgSetMapPtr(1, 0x7400, SC_32x32);
-@@ -406,15 +418,28 @@
+@@ -406,15 +418,28 @@ static void show_game(void) becomes static void show_game(int advance)
      start_music();
  }
  
@@ -640,7 +646,7 @@ Replace the screen-switching and loop code in `src\main.c` as follows:
      paused = 0;
      new_high_score = 0;
      shown_score = -1;
-@@ -434,11 +459,12 @@
+@@ -434,11 +459,12 @@ static void update_fade(void)
  static void update_fade(void)
  {
      if (fade_step < 0 && brightness == 0) {
@@ -655,7 +661,7 @@ Replace the screen-switching and loop code in `src\main.c` as follows:
          fade_step = 1;
      } else if (fade_step != 0) {
          brightness += fade_step;
-@@ -523,6 +549,10 @@
+@@ -523,6 +549,10 @@ static void update_game(u16 held, u16 pressed)
      int movement;
      int old_state;
  
@@ -666,7 +672,7 @@ Replace the screen-switching and loop code in `src\main.c` as follows:
      if ((game.state == STATE_GAME_OVER || game.state == STATE_WON) &&
          (pressed & (KEY_B | KEY_START))) {
          fade_to(SCREEN_TITLE);
-@@ -574,7 +604,7 @@
+@@ -574,7 +604,7 @@ int main(void)
          held = padsCurrent(0);
          pressed = padsDown(0);
          read_mouse(&pressed);
@@ -675,7 +681,7 @@ Replace the screen-switching and loop code in `src\main.c` as follows:
              held = 0;
              pressed = 0;
              mouse_dx = 0;
-@@ -582,13 +612,18 @@
+@@ -582,13 +612,18 @@ int main(void)
          update_fade();
          if (screen == SCREEN_TITLE)
              update_title(pressed);
@@ -743,7 +749,7 @@ Edit `src\game.c` and `src\main.c`:
 ```diff
 --- a/src/game.c
 +++ b/src/game.c
-@@ -2,7 +2,7 @@
+@@ -2,7 +2,7 @@ File-scope levels table: first level's top row
  
  static const char levels[LEVEL_COUNT][BRICK_ROWS][BRICK_COLS + 1] = {
      {
@@ -752,7 +758,7 @@ Edit `src\game.c` and `src\main.c`:
          "11001100110011",
          "11111111111111",
          "00110011001100",
-@@ -16,7 +16,7 @@
+@@ -16,7 +16,7 @@ File-scope levels table: third level's top row
          "00000111100000"
      },
      {
@@ -761,7 +767,7 @@ Edit `src\game.c` and `src\main.c`:
          "10010011001001",
          "11111111111111",
          "00110100101100",
-@@ -109,7 +109,9 @@
+@@ -109,7 +109,9 @@ static int hit_brick(Game *game, int x, int y)
              index = row * BRICK_COLS + col;
              if (game->bricks[index]) {
                  game->hits |= HIT_BRICK;
@@ -777,7 +783,7 @@ Edit `src\game.c` and `src\main.c`:
 ```diff
 --- a/src/main.c
 +++ b/src/main.c
-@@ -111,14 +111,17 @@
+@@ -111,14 +111,17 @@ static void prepare_bricks(void)
      int row;
      int col;
      int tile;
@@ -854,7 +860,7 @@ Edit `src\game.h` and `src\game.c`:
 ```diff
 --- a/src/game.h
 +++ b/src/game.h
-@@ -8,6 +8,7 @@
+@@ -8,6 +8,7 @@ File-scope constants: after BALL_SUBSTEPS
  
  #define BALL_SIZE 8
  #define BALL_SUBSTEPS 3
@@ -862,7 +868,7 @@ Edit `src\game.h` and `src\game.c`:
  #define PADDLE_WIDTH 48
  #define PADDLE_HEIGHT 8
  #define PADDLE_Y 200
-@@ -46,6 +47,8 @@
+@@ -46,6 +47,8 @@ struct Game
      int state;
      int hits;
      int level;
@@ -876,7 +882,7 @@ Edit `src\game.h` and `src\game.c`:
 ```diff
 --- a/src/game.c
 +++ b/src/game.c
-@@ -35,8 +35,10 @@
+@@ -35,8 +35,10 @@ static void attach_ball(Game *game)
  {
      game->ball_x = game->paddle_x + (PADDLE_WIDTH - BALL_SIZE) / 2;
      game->ball_y = PADDLE_Y - BALL_SIZE;
@@ -889,7 +895,7 @@ Edit `src\game.h` and `src\game.c`:
  }
  
  static void load_level(Game *game)
-@@ -147,16 +149,24 @@
+@@ -147,16 +149,24 @@ static void paddle_bounce(Game *game)
      int hit_position;
  
      hit_position = game->ball_x + BALL_SIZE / 2 - game->paddle_x;
@@ -924,7 +930,7 @@ Edit `src\game.h` and `src\game.c`:
  }
  
  static void move_ball_y(Game *game)
-@@ -229,14 +239,20 @@
+@@ -229,14 +239,20 @@ void game_tick(Game *game, int movement, int action_pressed)
          return;
      }
  
@@ -1006,7 +1012,7 @@ drawing, and collection sound:
 ```diff
 --- a/src/game.h
 +++ b/src/game.h
-@@ -26,6 +26,11 @@
+@@ -26,6 +26,11 @@ File-scope constants: after LEVEL_COUNT
  #define HIT_PADDLE 2
  #define HIT_BRICK 4
  #define LEVEL_COUNT 3
@@ -1018,7 +1024,7 @@ drawing, and collection sound:
  
  enum GameState {
      STATE_READY,
-@@ -34,6 +39,12 @@
+@@ -34,6 +39,12 @@ File scope: add struct Capsule between enum GameState and struct Game
      STATE_WON,
      STATE_LEVEL_CLEAR
  };
@@ -1031,7 +1037,7 @@ drawing, and collection sound:
  
  typedef struct Game {
      int paddle_x;
-@@ -49,6 +60,8 @@
+@@ -49,6 +60,8 @@ struct Game
      int level;
      int ball_fraction_x;
      int ball_fraction_y;
@@ -1045,7 +1051,7 @@ drawing, and collection sound:
 ```diff
 --- a/src/game.c
 +++ b/src/game.c
-@@ -41,6 +41,17 @@
+@@ -41,6 +41,17 @@ Between attach_ball and load_level: add clear_capsules
      game->ball_fraction_y = 0;
  }
  
@@ -1063,7 +1069,7 @@ drawing, and collection sound:
  static void load_level(Game *game)
  {
      int row;
-@@ -51,6 +62,8 @@
+@@ -51,6 +62,8 @@ static void load_level(Game *game)
      game->bricks_left = 0;
      game->state = STATE_READY;
      game->hits = 0;
@@ -1072,7 +1078,7 @@ drawing, and collection sound:
      i = 0;
      for (row = 0; row < BRICK_ROWS; ++row) {
          for (col = 0; col < BRICK_COLS; ++col) {
-@@ -76,6 +89,46 @@
+@@ -76,6 +89,46 @@ After game_next_level: add drop_capsule and update_capsules
      if (game->state == STATE_LEVEL_CLEAR && game->level + 1 < LEVEL_COUNT) {
          ++game->level;
          load_level(game);
@@ -1119,7 +1125,7 @@ drawing, and collection sound:
      }
  }
  
-@@ -116,7 +169,9 @@
+@@ -116,7 +169,9 @@ static int hit_brick(Game *game, int x, int y)
                      return 1;
                  game->score += 10;
                  --game->bricks_left;
@@ -1129,7 +1135,7 @@ drawing, and collection sound:
                      if (game->level + 1 == LEVEL_COUNT)
                          game->state = STATE_WON;
                      else
-@@ -194,6 +249,7 @@
+@@ -194,6 +249,7 @@ static void lose_life(Game *game)
  
  static void lose_life(Game *game)
  {
@@ -1137,7 +1143,7 @@ drawing, and collection sound:
      --game->lives;
      if (game->lives == 0) {
          game->state = STATE_GAME_OVER;
-@@ -239,6 +295,7 @@
+@@ -239,6 +295,7 @@ void game_tick(Game *game, int movement, int action_pressed)
          return;
      }
  
@@ -1150,7 +1156,7 @@ drawing, and collection sound:
 ```diff
 --- a/src/main.c
 +++ b/src/main.c
-@@ -49,6 +49,7 @@
+@@ -49,6 +49,7 @@ File-scope asset declarations: after ball_tiles
  
  extern u8 paddle_tiles[];
  extern u8 ball_tiles[];
@@ -1158,7 +1164,7 @@ drawing, and collection sound:
  extern u8 sprite_palette[];
  extern u8 backdrop_tiles[], backdrop_tiles_end[];
  extern u8 backdrop_map[];
-@@ -227,6 +228,7 @@
+@@ -227,6 +228,7 @@ static void draw_sprites(void)
  {
      int paddle_frame;
      int ball_frame;
@@ -1166,7 +1172,7 @@ drawing, and collection sound:
  
      if (game.hits & HIT_PADDLE)
          paddle_glimmer = GLIMMER_FRAMES * GLIMMER_TICKS;
-@@ -247,6 +249,13 @@
+@@ -247,6 +249,13 @@ static void draw_sprites(void)
      oamMetaDrawDyn16(1, game.paddle_x, PADDLE_Y,
                       (u8 *)paddle_frames[paddle_frame], paddle_tiles,
                       OBJ_LARGE);
@@ -1180,7 +1186,7 @@ drawing, and collection sound:
  }
  
  static void play_effect(int sound, int pitch)
-@@ -281,6 +290,8 @@
+@@ -281,6 +290,8 @@ static void play_sounds(int old_state)
          } else if (old_state == STATE_PLAYING) {
              play_effect(SFX_STRINGS, 3);
          }
@@ -1189,7 +1195,7 @@ drawing, and collection sound:
      } else if (game.hits & HIT_BRICK) {
          play_effect(SFX_COWBELL, 4);
      } else if (game.hits & HIT_PADDLE) {
-@@ -380,6 +391,8 @@
+@@ -380,6 +391,8 @@ static void init_video(void)
      ball_glimmer = 0;
      shown_paddle_frame = -1;
      init_sprite(0, ball_tiles, 0, OBJ_SIZES);
@@ -1203,7 +1209,7 @@ drawing, and collection sound:
 ```diff
 --- a/Makefile
 +++ b/Makefile
-@@ -35,6 +35,9 @@
+@@ -35,6 +35,9 @@ After the ball.pic rule: add the capsule.pic rule
  ball.pic: ball.png
  	$(GFXCONV) -s 8 -R -o 16 -u 16 -p -t png -i $<
  
@@ -1213,7 +1219,7 @@ drawing, and collection sound:
  playfield.pic: playfield.png
  	$(GFXCONV) -s 8 -o 16 -u 16 -e 2 -p -m -t png -i $<
  
-@@ -44,7 +47,7 @@
+@@ -44,7 +47,7 @@ src/data.obj dependency rule
  title-logo.pic: title-logo.png
  	$(GFXCONV) -s 8 -o 64 -u 16 -e 3 -p -m -t png -i $<
  
@@ -1227,7 +1233,7 @@ drawing, and collection sound:
 ```diff
 --- a/src/data.asm
 +++ b/src/data.asm
-@@ -7,6 +7,9 @@
+@@ -7,6 +7,9 @@ After ball_tiles: add capsule_tiles
  
  ball_tiles:
  .incbin "ball.pic"
@@ -1285,7 +1291,7 @@ so it cannot remain on the title. Here are all the edits:
 ```diff
 --- a/src/game.h
 +++ b/src/game.h
-@@ -10,6 +10,8 @@
+@@ -10,6 +10,8 @@ File-scope constants: after PADDLE_WIDTH
  #define BALL_SUBSTEPS 3
  #define BALL_UNIT 16
  #define PADDLE_WIDTH 48
@@ -1294,7 +1300,7 @@ so it cannot remain on the title. Here are all the edits:
  #define PADDLE_HEIGHT 8
  #define PADDLE_Y 200
  #define PADDLE_SPEED 3
-@@ -61,6 +63,8 @@
+@@ -61,6 +63,8 @@ struct Game
      int ball_fraction_x;
      int ball_fraction_y;
      int drops;
@@ -1308,7 +1314,7 @@ so it cannot remain on the title. Here are all the edits:
 ```diff
 --- a/src/game.c
 +++ b/src/game.c
-@@ -33,7 +33,7 @@
+@@ -33,7 +33,7 @@ static void attach_ball(Game *game)
  
  static void attach_ball(Game *game)
  {
@@ -1317,7 +1323,7 @@ so it cannot remain on the title. Here are all the edits:
      game->ball_y = PADDLE_Y - BALL_SIZE;
      game->vx = BALL_UNIT;
      game->vy = -3 * BALL_UNIT;
-@@ -59,6 +59,8 @@
+@@ -59,6 +59,8 @@ static void load_level(Game *game)
      int i;
  
      game->paddle_x = (FIELD_LEFT + FIELD_RIGHT - PADDLE_WIDTH) / 2;
@@ -1326,7 +1332,7 @@ so it cannot remain on the title. Here are all the edits:
      game->bricks_left = 0;
      game->state = STATE_READY;
      game->hits = 0;
-@@ -110,6 +112,16 @@
+@@ -110,6 +112,16 @@ Between drop_capsule and update_capsules: add resize_paddle
      }
  }
  
@@ -1343,7 +1349,7 @@ so it cannot remain on the title. Here are all the edits:
  static void update_capsules(Game *game)
  {
      int i;
-@@ -122,10 +134,12 @@
+@@ -122,10 +134,12 @@ static void update_capsules(Game *game)
          capsule->y += CAPSULE_SPEED;
          if (capsule->y < PADDLE_Y + PADDLE_HEIGHT &&
              capsule->y + CAPSULE_SIZE > PADDLE_Y &&
@@ -1357,7 +1363,7 @@ so it cannot remain on the title. Here are all the edits:
          } else if (capsule->y >= FIELD_BOTTOM) {
              capsule->active = 0;
          }
-@@ -204,16 +218,16 @@
+@@ -204,16 +218,16 @@ static void paddle_bounce(Game *game)
      int hit_position;
  
      hit_position = game->ball_x + BALL_SIZE / 2 - game->paddle_x;
@@ -1378,7 +1384,7 @@ so it cannot remain on the title. Here are all the edits:
          game->vx = 24;
          game->vy = -40;
      } else {
-@@ -236,7 +250,7 @@
+@@ -236,7 +250,7 @@ static void move_ball_y(Game *game)
                 game->ball_y + BALL_SIZE <= PADDLE_Y &&
                 next_y + BALL_SIZE > PADDLE_Y &&
                 game->ball_x + BALL_SIZE > game->paddle_x &&
@@ -1387,7 +1393,7 @@ so it cannot remain on the title. Here are all the edits:
          game->hits |= HIT_PADDLE;
          game->ball_y = PADDLE_Y - BALL_SIZE;
          paddle_bounce(game);
-@@ -250,6 +264,8 @@
+@@ -250,6 +264,8 @@ static void lose_life(Game *game)
  static void lose_life(Game *game)
  {
      clear_capsules(game);
@@ -1396,7 +1402,7 @@ so it cannot remain on the title. Here are all the edits:
      --game->lives;
      if (game->lives == 0) {
          game->state = STATE_GAME_OVER;
-@@ -266,8 +282,8 @@
+@@ -266,8 +282,8 @@ void game_move_paddle(Game *game, int dx)
      game->paddle_x += dx;
      if (game->paddle_x < FIELD_LEFT)
          game->paddle_x = FIELD_LEFT;
@@ -1407,7 +1413,7 @@ so it cannot remain on the title. Here are all the edits:
  }
  
  void game_tick(Game *game, int movement, int action_pressed)
-@@ -295,6 +311,11 @@
+@@ -295,6 +311,11 @@ void game_tick(Game *game, int movement, int action_pressed)
          return;
      }
  
@@ -1424,7 +1430,7 @@ so it cannot remain on the title. Here are all the edits:
 ```diff
 --- a/src/main.c
 +++ b/src/main.c
-@@ -25,6 +25,12 @@
+@@ -25,6 +25,12 @@ File-scope macros: add WIDE_PIECES after PADDLE_PIECES
      METASPR_ITEM(0, 0, (frame), PADDLE_ATTR),      \
      METASPR_ITEM(16, 0, 8 + (frame), PADDLE_ATTR), \
      METASPR_ITEM(32, 0, 16 + (frame), PADDLE_ATTR), \
@@ -1437,7 +1443,7 @@ so it cannot remain on the title. Here are all the edits:
      METASPR_TERM
  
  #define SFX_TADA 0
-@@ -70,6 +76,18 @@
+@@ -70,6 +76,18 @@ File scope: add wide metasprite tables after paddle_frames
  const t_metasprite *paddle_frames[GLIMMER_FRAMES + 1] = {
      paddle_frame0, paddle_frame1, paddle_frame2,
      paddle_frame3, paddle_frame4, paddle_frame5
@@ -1456,7 +1462,7 @@ so it cannot remain on the title. Here are all the edits:
  };
  
  Game game;
-@@ -90,6 +108,8 @@
+@@ -90,6 +108,8 @@ File-scope variables: after shown_paddle_frame
  static int paddle_glimmer;
  static int ball_glimmer;
  static int shown_paddle_frame;
@@ -1465,7 +1471,7 @@ so it cannot remain on the title. Here are all the edits:
  static int screen;
  static int next_screen;
  static int brightness;
-@@ -178,6 +198,10 @@
+@@ -178,6 +198,10 @@ static void draw_text(void)
          consoleDrawText(26, 1, level_text);
          shown_level = game.level;
      }
@@ -1476,7 +1482,7 @@ so it cannot remain on the title. Here are all the edits:
  
      if (entrance_offset != 0)
          return;
-@@ -229,6 +253,7 @@
+@@ -229,6 +253,7 @@ static void draw_sprites(void)
      int paddle_frame;
      int ball_frame;
      int i;
@@ -1484,7 +1490,7 @@ so it cannot remain on the title. Here are all the edits:
  
      if (game.hits & HIT_PADDLE)
          paddle_glimmer = GLIMMER_FRAMES * GLIMMER_TICKS;
-@@ -242,12 +267,18 @@
+@@ -242,12 +267,18 @@ static void draw_sprites(void)
      show_frame(0, ball_frame);
      oamDynamic8Draw(0);
  
@@ -1505,7 +1511,7 @@ so it cannot remain on the title. Here are all the edits:
                       OBJ_LARGE);
      for (i = 0; i < CAPSULE_COUNT; ++i) {
          if (game.capsules[i].active) {
-@@ -390,6 +421,7 @@
+@@ -390,6 +421,7 @@ static void init_video(void)
      paddle_glimmer = 0;
      ball_glimmer = 0;
      shown_paddle_frame = -1;
@@ -1513,7 +1519,7 @@ so it cannot remain on the title. Here are all the edits:
      init_sprite(0, ball_tiles, 0, OBJ_SIZES);
      for (i = 0; i < CAPSULE_COUNT; ++i)
          init_sprite(5 + i, capsule_tiles, 0, OBJ_SIZES);
-@@ -413,6 +445,7 @@
+@@ -413,6 +445,7 @@ static void clear_text(void)
  
      /* consoleDrawText is slow, so only clear the rows we write to. */
      consoleDrawText(0, 1, "                                ");
@@ -1521,7 +1527,7 @@ so it cannot remain on the title. Here are all the edits:
      for (row = 8; row <= 24; row += 2)
          consoleDrawText(0, row, "                                ");
  }
-@@ -462,6 +495,7 @@
+@@ -462,6 +495,7 @@ static void show_game(int advance)
      shown_lives = -1;
      shown_state = -1;
      shown_level = -1;

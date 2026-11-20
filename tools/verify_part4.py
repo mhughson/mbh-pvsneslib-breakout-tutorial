@@ -26,11 +26,14 @@ def apply_diff(project, block):
         index = 2
         while index < len(lines):
             header = re.fullmatch(
-                r"@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@[^\n]*\n?",
+                r"@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@ [^\s\n][^\n]*\n?",
                 lines[index],
             )
             if not header:
-                raise ValueError(f"Invalid hunk in {name}: {lines[index]!r}")
+                raise ValueError(
+                    f"Invalid hunk or missing function/placement label in {name}: "
+                    f"{lines[index]!r}"
+                )
             start = int(header[1]) - 1
             if start < cursor:
                 raise ValueError(f"Overlapping hunk in {name}")
