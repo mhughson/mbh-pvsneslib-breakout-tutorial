@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self' blob: data:; script-src 'self' 'unsafe-inline' 'unsafe-eval' blob:; style-src 'self' 'unsafe-inline'; connect-src 'self' blob: data:; frame-src 'none'">
+  <title>SNES Breakout emulator</title>
+  <style>
+    html, body { margin: 0; height: 100%; background: #111; color: #eee; font: 14px system-ui, sans-serif; }
+    body { display: flex; flex-direction: column; }
+    #game { flex: 1; min-height: 0; width: 100%; }
+    #status { margin: 0; padding: 12px; text-align: center; }
+    #status.error { color: #ffb4b4; }
+    footer { padding: 6px; text-align: center; font-size: 11px; }
+    a { color: #9cccff; }
+  </style>
+</head>
+<body>
+  <p id="status" role="status">Loading the player...</p>
+  <div id="game"></div>
+  <footer>
+    <a href="https://github.com/EmulatorJS/EmulatorJS/tree/v4.2.3" target="_blank" rel="noopener">EmulatorJS source</a>
+    &middot; <a href="https://github.com/EmulatorJS/build" target="_blank" rel="noopener">Core build sources</a>
+    &middot; <a href="data/LICENSE" target="_blank" rel="noopener">GPL license</a>
+    &middot; <a href="data/SNES9X-LICENSE" target="_blank" rel="noopener">Snes9x license</a>
+  </footer>
+  <script type="module" src="player.mjs"></script>
+</body>
+</html>

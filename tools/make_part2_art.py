@@ -4,7 +4,7 @@ from pathlib import Path
 import struct
 import zlib
 
-PART2 = Path(__file__).resolve().parents[1]
+PART2 = Path(__file__).resolve().parents[1] / "part2"
 
 SPRITE_COLORS = [
     (0, 0, 0),

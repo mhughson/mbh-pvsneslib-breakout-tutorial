@@ -2,10 +2,10 @@
 #include <stdio.h>
 #include "game.h"
 
-#define MID (2 * BRICK_COLS + 6)
+#define MID   (2 * BRICK_COLS + 6)
 #define MID_X (BRICK_X + 6 * BRICK_WIDTH)
 #define MID_Y (BRICK_Y + 2 * BRICK_HEIGHT)
-#define FAR (BRICK_COUNT - 1)
+#define FAR   (BRICK_COUNT - 1)
 
 static void playing(Game *game)
 {
@@ -19,7 +19,9 @@ static void two_bricks(Game *game)
 
     playing(game);
     for (i = 0; i < BRICK_COUNT; ++i)
+    {
         game->bricks[i] = 0;
+    }
     game->bricks[MID] = 1;
     game->bricks[FAR] = 1;
     game->bricks_left = 2;
@@ -41,8 +43,12 @@ static int live_bricks(const Game *game)
     int count = 0;
 
     for (i = 0; i < BRICK_COUNT; ++i)
+    {
         if (game->bricks[i])
+        {
             ++count;
+        }
+    }
     return count;
 }
 
@@ -115,7 +121,8 @@ static void test_damage_and_faces(void)
 
     two_bricks(&game);
     game.bricks[MID] = 3;
-    for (face = 2; face >= 0; --face) {
+    for (face = 2; face >= 0; --face)
+    {
         aim_up(&game);
         game_tick(&game, 0, 0);
         assert(game.bricks[MID] == face);
@@ -126,18 +133,24 @@ static void test_damage_and_faces(void)
     game_tick(&game, 0, 0);
     assert(game.score == 10 && game.hits == 0);
 
-    for (face = 0; face < 3; ++face) {
+    for (face = 0; face < 3; ++face)
+    {
         two_bricks(&game);
         game.vx = 0;
         game.vy = 0;
         game.ball_y = MID_Y;
-        if (face == 0) {
+        if (face == 0)
+        {
             game.ball_x = MID_X - BALL_SIZE;
             game.vx = 3 * BALL_UNIT;
-        } else if (face == 1) {
+        }
+        else if (face == 1)
+        {
             game.ball_x = MID_X + BRICK_WIDTH;
             game.vx = -3 * BALL_UNIT;
-        } else {
+        }
+        else
+        {
             game.ball_x = MID_X + 4;
             game.ball_y = MID_Y - BALL_SIZE;
             game.vy = 3 * BALL_UNIT;
@@ -145,11 +158,17 @@ static void test_damage_and_faces(void)
         game_tick(&game, 0, 0);
         assert(game.bricks[MID] == 0 && game.score == 10);
         if (face == 0)
+        {
             assert(game.vx < 0 && game.ball_x + BALL_SIZE <= MID_X);
+        }
         else if (face == 1)
+        {
             assert(game.vx > 0 && game.ball_x >= MID_X + BRICK_WIDTH);
+        }
         else
+        {
             assert(game.vy < 0 && game.ball_y + BALL_SIZE <= MID_Y);
+        }
     }
 }
 
@@ -181,10 +200,11 @@ static void test_fractional_motion_and_angles(void)
     Game game;
     int i;
     int left;
-    int positions[5] = { 1, 11, 21, 31, 41 };
-    int speeds[5] = { -40, -24, 8, 24, 40 };
+    int positions[5] = {1, 11, 21, 31, 41};
+    int speeds[5] = {-40, -24, 8, 24, 40};
 
-    for (i = 0; i < 5; ++i) {
+    for (i = 0; i < 5; ++i)
+    {
         playing(&game);
         game.ball_x = game.paddle_x + positions[i] - BALL_SIZE / 2;
         game.ball_y = PADDLE_Y - BALL_SIZE;
@@ -195,7 +215,8 @@ static void test_fractional_motion_and_angles(void)
         assert(game.ball_y + BALL_SIZE <= PADDLE_Y);
         assert(game.hits == HIT_PADDLE);
     }
-    for (i = -1; i <= 1; i += 2) {
+    for (i = -1; i <= 1; i += 2)
+    {
         playing(&game);
         game.ball_y = 140;
         game.vx = i * 8;
@@ -217,7 +238,8 @@ static void test_levels_and_final_win(void)
     playing(&game);
     game_next_level(&game);
     assert(game.level == 0);
-    for (level = 0; level < LEVEL_COUNT; ++level) {
+    for (level = 0; level < LEVEL_COUNT; ++level)
+    {
         assert(game.level == level);
         count = level == 1 ? 36 : (level == 0 ? 56 : 54);
         assert(game.bricks_left == count && live_bricks(&game) == count);
@@ -225,7 +247,9 @@ static void test_levels_and_final_win(void)
         game.score = 1230;
         game.lives = 2;
         for (count = 0; count < BRICK_COUNT; ++count)
+        {
             game.bricks[count] = 0;
+        }
         game.bricks[MID] = 1;
         game.bricks_left = 1;
         game.state = STATE_PLAYING;
@@ -238,7 +262,9 @@ static void test_levels_and_final_win(void)
         game_tick(&game, 0, 1);
         assert(game.state == STATE_READY);
         if (level != 2)
+        {
             assert(game.score == 1240 && game.lives == 2);
+        }
     }
     assert(game.level == 0 && game.score == 0 && game.lives == 3);
 }
@@ -259,7 +285,8 @@ static void test_capsule_drops_and_pool(void)
     game_tick(&game, 0, 0);
     assert(game.capsules[0].active && !game.capsules[1].active);
     assert(game.capsules[0].x == MID_X + 4);
-    for (i = 0; i < CAPSULE_COUNT; ++i) {
+    for (i = 0; i < CAPSULE_COUNT; ++i)
+    {
         game.capsules[i].active = 1;
         game.capsules[i].x = FIELD_LEFT;
         game.capsules[i].y = 120;
@@ -271,7 +298,9 @@ static void test_capsule_drops_and_pool(void)
     game_tick(&game, 0, 0);
     assert(game.bricks[MID] == 0 && game.bricks_left == 1);
     for (i = 0; i < CAPSULE_COUNT; ++i)
+    {
         assert(game.capsules[i].active && game.capsules[i].x == FIELD_LEFT);
+    }
     game.capsules[1].y = FIELD_BOTTOM - 1;
     game_tick(&game, 0, 0);
     assert(!game.capsules[1].active);
@@ -304,7 +333,9 @@ static void test_wide_pickup_refresh_and_expiration(void)
     catch_capsule(&game);
     assert(game.wide_ticks == WIDE_FRAMES);
     for (i = 0; i < WIDE_FRAMES - 1; ++i)
+    {
         game_tick(&game, 0, 0);
+    }
     assert(game.wide_ticks == 1 && game.paddle_width == WIDE_PADDLE_WIDTH);
     game_tick(&game, 0, 0);
     assert(game.wide_ticks == 0 && game.paddle_width == PADDLE_WIDTH);
@@ -363,7 +394,9 @@ static void test_life_and_level_cleanup(void)
     assert(game.ball_fraction_x == 0 && game.ball_fraction_y == 0);
     assert(game.ball_x == game.paddle_x + 20);
     for (i = 0; i < CAPSULE_COUNT; ++i)
+    {
         assert(!game.capsules[i].active);
+    }
     game.state = STATE_PLAYING;
     game.lives = 1;
     game.ball_y = FIELD_BOTTOM - 1;

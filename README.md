@@ -1,71 +1,44 @@
-# Write a Breakout-style SNES game with PVSnesLib
+# SNES Breakout Tutorial
 
-This is a **build-it-yourself tutorial**, not a tour of a finished program.
-Start with an empty project inside your installed PVSnesLib folder. Write a
-little code, build it, try it, and then add the next feature.
+Build a complete SNES game in C with PVSnesLib. Here's the finished game after
+Part 4:
+
+<video class="final-game-preview" controls muted loop playsinline preload="metadata" width="512" poster="screenshots/part4-playing.png" src="videos/part4-preview.mp4">Your browser does not support video playback. <a href="videos/part4-preview.mp4">Download the preview video</a>.</video>
+
+Along the way, you'll use:
+
+- **Graphics:** tile-map backgrounds, animated sprites and metasprites.
+- **Effects:** scrolling, fades, mosaic, and HDMA color gradients.
+- **Hardware:** SPC700 music and sound effects, SRAM saves, and SNES Mouse input.
+
+<div class="rom-download-panel" data-part="4">
+  <p class="rom-download-heading"><strong>Try the finished game!</strong></p>
+  <a class="rom-download-button" href="part4/breakout.sfc" download>Download the finished Part 4 ROM</a>
+</div>
+
+[Read on the tutorial site](https://mhughson.github.io/mbh-pvsneslib-breakout-tutorial/)
+· **Part 1: The Core Mechanics** · [Part 2](README-part2.md) · [Part 3](README-part3.md) · [Part 4](README-part4.md)
+
+## Part 1: The Core Mechanics
+
+<div class="rom-download-panel" data-part="1">
+  <p class="rom-download-heading"><strong>Play the game you're about to build!</strong></p>
+  <a class="rom-download-button" href="breakout.sfc" download>Download the Part 1 ROM</a>
+  <p class="rom-download-note">Launch the completed game in a SNES emulator, then build your own from scratch.</p>
+</div>
 
 You should know basic C: variables, functions, loops, arrays, pointers, and
 structs. You do not need assembly or prior SNES programming experience.
 
-By the end you will have a paddle, a bouncing ball, fifty colored bricks,
+By the end of Part 1 you will have a paddle, a bouncing ball, fifty colored bricks,
 scoring, three lives, and win/game-over screens with restarting. This first
 version has one level and no sound. It is an original Breakout-style exercise.
-When you finish, [Part 2](README-part2.md) adds dynamic sprite animations,
-background layers, tile-map bricks, music, and sound effects, and
-[Part 3](README-part3.md) adds a title screen, screen effects, pausing, a saved
-high score, and mouse control. [Part 4](README-part4.md) adds scrolling,
-multiple levels, tougher bricks, finer ball angles, and a wide-paddle power-up.
 
-![What we are working toward](screenshots/ready.png)
-
-## Tutorial versus finished reference
-
-**Do not copy this repository's `src` folder into your project.** It contains
-the finished reference game, not your starting point. You will create your own
-source files below. You only need the supplied [sprites.png](sprites.png)
-artwork and [third-party notices](THIRD_PARTY_NOTICES.txt) from this repository,
-plus, optionally, the [test file](tests/test_game.c) described at the end.
-
-To get those files, clone this repository or use GitHub's **Code** button and
-**Download ZIP**, and keep the copy outside your SDK folder. `sprites.png` and
-`THIRD_PARTY_NOTICES.txt` sit next to this README, and `test_game.c` is in its
-`tests` folder. The steps below say when to copy each one.
-
-The reference [main.c](src/main.c), [game.h](src/game.h), and
-[game.c](src/game.c) are available for comparison **after** you complete the
-steps. The repository's [Makefile](Makefile) builds that reference using a local
-SDK under `vendor/pvsneslib`; that is a separate convenience, not the learner's
-working directory or installation requirement.
-
-## How to follow the code edits
-
-Every step identifies the file to edit. When a whole file is given, create or
-replace that file. Later steps use **diff blocks with surrounding unchanged
-code**, so you can see exactly where an addition belongs:
-
-```diff
- int existing_line;
--old_line();
-+new_line();
- next_existing_line();
-```
-
-Keep the unmarked lines, remove lines starting with `-`, and add lines starting
-with `+`. Do not type those markers, the `---`/`+++` filenames, or the `@@`
-separators into your C files. Separate `@@` sections describe separate edits
-in the same file. A diff is an editing guide, not a complete file to paste.
-
-Prose names files with Windows-style backslashes (`src\main.c`), while diff
-headers and shell commands use forward slashes (`src/main.c`), which work on
-every operating system. Both mean the same file. Either kind of line ending
-(LF or Windows CRLF) is fine in your source files.
-
-Follow the steps in order; each edit assumes the previous checkpoint is done.
-There are no omitted function bodies to retrieve from the finished source.
+![The completed Part 1 ready screen](screenshots/part1-ready.png)
 
 ## Contents
 
-1. [Create an empty project and display text](#1-create-an-empty-project-and-display-text)
+1. [Install PVSnesLib and run Hello World](#1-install-pvsneslib-and-run-hello-world)
 2. [Draw a paddle and move it](#2-draw-a-paddle-and-move-it)
 3. [Attach a ball and launch it](#3-attach-a-ball-and-launch-it)
 4. [Move the ball and bounce off walls](#4-move-the-ball-and-bounce-off-walls)
@@ -73,119 +46,53 @@ There are no omitted function bodies to retrieve from the finished source.
 6. [Add a wall of destructible bricks](#6-add-a-wall-of-destructible-bricks)
 7. [Add lives, winning, and restarting](#7-add-lives-winning-and-restarting)
 8. [Draw the score, lives, and prompts](#8-draw-the-score-lives-and-prompts)
-9. [Test the complete game](#9-test-the-complete-game)
 
-See also [troubleshooting](#troubleshooting),
-[gameplay tests](#running-the-gameplay-tests), [licensing](#licensing), and
+See also [troubleshooting](#troubleshooting) and
 [official references](#official-references).
 
 ---
 
-## 1. Create an empty project and display text
+## 1. Install PVSnesLib and run Hello World
 
-### Install and check PVSnesLib
+<!-- tutorial-setup: sdk-hello-world -->
 
-This tutorial targets **PVSnesLib 4.6.0**. Newer releases exist (4.7.1 was the
-latest when this tutorial was tested), so download the 4.6.0 archive for your
-operating system instead of following the "latest" link:
+Follow the official [PVSnesLib installation guide][installation] for your
+operating system. This tutorial uses [PVSnesLib 4.6.0][release].
 
-| Operating system | Archive |
-|---|---|
-| Windows | [pvsneslib_460_64b_windows_release.zip][windows-zip] |
-| Linux | [pvsneslib_460_64b_linux_release.zip][linux-zip] |
-| macOS | [pvsneslib_460_64b_darwin_release.zip][macos-zip] |
+Before continuing, compile the SDK's `snes-examples\hello_world` example and
+run it in a SNES emulator.
 
-These prebuilt [release archives][release] contain the compiler and tools. Do
-not use GitHub's "Source code" download or a `git clone` of the repository
-instead: they hold only the sources, with no compiler in `devkitsnes\bin`.
-Also follow the official [installation guide][installation] for your operating
-system's prerequisites (for example, macOS needs `gnu-sed` from Homebrew).
+**Checkpoint:** Hello World compiles and displays its message in the emulator.
+You're ready for step 2.
 
-Later releases may work too: in one test, the finished game built and played
-correctly on 4.7.1 on Windows. But the steps below were written and checked
-against 4.6.0.
+![The SDK Hello World example running in a SNES emulator](screenshots/part1-section1-hello-world.png)
 
-On Windows, use **MSYS2 UCRT64** for the build commands, as recommended by the
-official guide, whose MSYS2 section covers installing and updating it. Open its
-terminal from the Start menu entry named **MSYS2 UCRT64** (not "MSYS2 MSYS" or
-"MSYS2 MINGW64"). You can edit files in VS Code or any other editor. In that
-terminal, install Make if needed:
+---
 
-```sh
-pacman -S make
-```
-
-The guide also has you update MSYS2 first with `pacman -Suuy`. That update may
-close the terminal when it finishes; if it does, open a new MSYS2 UCRT64
-terminal and run the command again.
-
-Extract the archive to a path without spaces. It contains one top-level
-`pvsneslib` folder, which becomes your **SDK root**. This tutorial uses
-`C:\snesdev` as the example location; substitute your own:
-
-```text
-C:\snesdev\pvsneslib\          <- the SDK root
-    devkitsnes\                compiler, linker, converters, build rules
-    pvsneslib\                 the library: headers and sources
-    snes-examples\             example projects; your project goes here
-    vscode-template\           optional VS Code project template
-```
-
-The SDK root is the folder that directly contains `devkitsnes`. The inner
-`pvsneslib` folder contains the library itself. If you extract into a folder
-that is itself called `pvsneslib`, the SDK root ends up one level deeper than
-you might expect. If you have already installed PVSnesLib 4.6.0, use that
-installation; do not install another SDK inside this tutorial repository.
-
-The shell commands below use MSYS2's `/c/...` spelling for a Windows `C:\...`
-path. This is the spelling expected by PVSnesLib's Make rules, even on Windows.
-On Linux/macOS, substitute your installation's absolute path.
-
-The official guide also suggests a permanent `PVSNESLIB_HOME` environment
-variable. This tutorial does not need one. If you have one, it must name the
-SDK root in the same `/c/...` form (a path with backslashes breaks the Make
-rules), and it overrides the default in your project's Makefile below. With the
-layout above that means `/c/snesdev/pvsneslib`; the guide's example value,
-`/c/snesdev`, would be one level too high. Open a new terminal after changing
-it.
-
-First prove the toolchain works:
-
-```sh
-cd /c/snesdev/pvsneslib
-export PVSNESLIB_HOME="$(pwd)"
-make -C snes-examples/hello_world
-```
-
-This example prints a short `COMPILATION SUMMARY` that says
-`No warnings or errors found.`, followed by ROM and RAM usage. (The long output
-described below is what your own project prints.) The build creates
-`snes-examples/hello_world/hello_world.sfc`; open that ROM in a SNES emulator.
-[Mesen](https://www.mesen.ca/) is one option.
-
-**Checkpoint:** Hello World displays its text. Fix installation problems here,
-before writing the game. The official [Hello World walkthrough][hello] can help.
+## 2. Draw a paddle and move it
 
 ### Create your project inside the installation
 
-From the SDK root, create a **new, empty** example directory:
+Create an empty `breakout` folder inside your SDK's `snes-examples` folder.
+For an SDK installed at `C:\snesdev\pvsneslib`, the full project path is
+`C:\snesdev\pvsneslib\snes-examples\breakout`.
 
-```sh
-mkdir -p snes-examples/breakout/src
-cd snes-examples/breakout
-```
+Create a `src` folder inside it:
+`C:\snesdev\pvsneslib\snes-examples\breakout\src`.
+Use your own SDK location if it differs from this example. Open the `breakout`
+folder in your editor and run the build commands from there.
 
-If `breakout` already contains another project, use a different new directory
-name instead; do not overwrite it. Keep the same two-level nesting under the
-SDK root. (The SDK's own, unrelated Breakout example lives deeper, at
-`snes-examples/systems/games/breakout`.)
+---
 
-Your working directory is now `C:\snesdev\pvsneslib\snes-examples\breakout`.
-Every subsequent `make` command is run **here**, not in this repository and
-not in the SDK root. You can open this new directory in VS Code.
+### Open `Makefile`
 
 Create `Makefile` in that directory. Its name is exactly `Makefile`, with no
 extension (some editors, such as Notepad, quietly add `.txt`):
+
+**Goal:** Configure a ROM build that uses the surrounding SDK installation.
+
+<!-- tutorial-edit: {"file":"Makefile","op":"write"} -->
+**`Makefile` — create or replace the entire file:**
 
 ```make
 export PVSNESLIB_HOME ?= $(abspath $(CURDIR)/../..)
@@ -206,18 +113,19 @@ all: $(ROMNAME).sfc
 clean: cleanBuildRes cleanRom cleanGfx
 ```
 
-There are no command recipes in this first Makefile; the SDK supplies them.
-The default SDK path goes up two directories from your new project. An existing
-environment variable or command-line setting overrides it. Thus `make` also
-works in a new terminal without exporting the variable again, provided your
-project is in this layout.
+The Makefile is your game's build script. It defines what gets built and how
+PVSnesLib turns your code and artwork into `breakout.sfc`.
 
-The SDK rules find the `.c` and `.asm` files in your project folder, in `src`,
-and in folders up to two levels below `src`; they compile those files and link a
-ROM. PVSnesLib 4.6.0 generates `hdr.asm` automatically; **do not write a custom
-ROM header**. See the [header guide][header].
+---
+
+### Open `src\main.c`
 
 Create `src\main.c` with this entire program:
+
+**Goal:** Display a text message before adding gameplay or graphics assets.
+
+<!-- tutorial-edit: {"file":"src/main.c","op":"write"} -->
+**`src\main.c` — create or replace the entire file:**
 
 ```c
 #include <snes.h>
@@ -234,12 +142,17 @@ int main(void)
     consoleDrawText(7, 12, "MY FIRST BREAKOUT");
     setScreenOn();
 
-    while (1) {
+    while (1)
+    {
         WaitForVBlank();
     }
     return 0;
 }
 ```
+
+The program initializes the font and text map while the screen is off, selects
+Mode 1, and writes the message into the console buffer. `WaitForVBlank` lets
+the library transfer that buffer each frame.
 
 Build:
 
@@ -255,13 +168,7 @@ stops with an error message and never prints that line.
 
 Open **your new project's** `breakout.sfc` in the emulator.
 
-**Checkpoint:** a text-only screen says `MY FIRST BREAKOUT`. There is no
-paddle, ball, or game yet. You have built the first version yourself.
-
-<img width="770" height="729" alt="image" src="https://github.com/user-attachments/assets/6e5ef5b1-95f3-4b7b-93d3-5e2368dd265e" />
-
-
-### Just enough graphics terminology
+### SNES Terminology
 
 The SNES assembles its picture from tiles, rather than drawing arbitrary
 rectangles into a modern framebuffer:
@@ -280,50 +187,62 @@ Our screen is 256 by 224 pixels. X increases rightward; Y increases downward.
 Sprites use pixel coordinates, but console text uses 8-by-8 character cells.
 `consoleDrawText(2, 1, "HELLO")` starts at pixel `(16, 8)`.
 
----
+**Checkpoint:** Build and open `breakout.sfc`. The screen displays
+`MY FIRST BREAKOUT`, confirming that the compiler, ROM build, and text layer work.
 
-## 2. Draw a paddle and move it
+![The new project's first text screen](screenshots/part1-section2-project-text.png)
 
-### Add artwork, not finished game code
+### Adding graphics
 
-Copy only [sprites.png](sprites.png) into your new project's root. Also copy
-[THIRD_PARTY_NOTICES.txt](THIRD_PARTY_NOTICES.txt) there to preserve the notice
-for the PVSnesLib code/font that will be linked into the ROM. Take both files
-from your copy of this repository.
+Copy [sprites.png](sprites.png) from your repository copy into your new project's
+root, beside `Makefile`.
 
-<img width="938" height="147" alt="image" src="https://github.com/user-attachments/assets/b170c99a-0b09-403d-9710-ea8a90616833" />
+![The indexed brick, paddle, and ball sprite sheet](sprites.png)
 
 
 The original sheet is a 128-by-16 indexed PNG. Across the top are five brick
 colors, a paddle segment, and a ball. The lower eight rows are transparent.
-No graphics editor or Python installation is needed for this tutorial.
+
+---
+
+### Open `Makefile`
 
 Add the conversion rule to **your** `Makefile`, between `all` and `clean`:
 
-```diff
---- a/Makefile
-+++ b/Makefile
-@@
- all: $(ROMNAME).sfc
+**Goal:** Convert the indexed sprite artwork before assembling its ROM data.
 
-+sprites.pic: sprites.png
-+	$(GFXCONV) -s 8 -R -o 16 -u 16 -p -t png -i $<
-+
-+src/data.obj: sprites.pic
-+
- clean: cleanBuildRes cleanRom cleanGfx
+<!-- tutorial-edit: {"file":"Makefile","op":"diff-region","context":3} -->
+**`Makefile` — in the file, apply these changes:**
+
+```make
+
+all: $(ROMNAME).sfc
+
+sprites.pic: sprites.png # [!code ++]
+	$(GFXCONV) -s 8 -R -o 16 -u 16 -p -t png -i $< # [!code ++]
+ # [!code ++]
+src/data.obj: sprites.pic # [!code ++]
+ # [!code ++]
+clean: cleanBuildRes cleanRom cleanGfx
 ```
 
 The new `$(GFXCONV)` command must start with a real **tab**, not spaces.
-The `clean` target still has no recipe of its own.
 
-The converter writes `sprites.pic` (1,024 bytes of tile data) and `sprites.pal`
-(32 bytes of palette data). It also writes `sprites.inc` and `sprites_data.as`,
+The converter will generate two files for you: `sprites.pic`, containing the
+tile graphics, and `sprites.pal`, containing their colors. It also writes `sprites.inc` and `sprites_data.as`,
 which this tutorial does not use. `-R` preserves tile order, `-u 16` selects
 4-bit pixels, `-o 16` outputs sixteen colors, and `-p` requests a palette.
-Do not deduplicate this sheet: our tile numbers depend on its layout.
+
+---
+
+### Open `src\data.asm`
 
 Create `src\data.asm`:
+
+**Goal:** Include the converted sprite tiles and palette in the ROM.
+
+<!-- tutorial-edit: {"file":"src/data.asm","op":"write"} -->
+**`src\data.asm` — create or replace the entire file:**
 
 ```asm
 .include "hdr.asm"
@@ -339,26 +258,40 @@ sprite_palette:
 .ends
 ```
 
-These labels let C refer to the binary graphics. The Makefile dependency ensures
-conversion happens before this file is assembled.
+These labels let C refer to the binary graphics.
 
 ### Keep gameplay separate from SNES drawing
 
+Gameplay files track what the game does; `main.c` handles SNES input and
+drawing. Put rules and state changes in `game.c`, and their shared types and
+function declarations in `game.h`. If a function needs PVSnesLib hardware
+calls, it belongs in `main.c`.
+
+---
+
+### Open `src\game.h`
+
 Create `src\game.h`. For now, the game contains **only a paddle position**:
+
+**Goal:** Define a hardware-independent interface for paddle movement.
+
+<!-- tutorial-edit: {"file":"src/game.h","op":"write"} -->
+**`src\game.h` — create or replace the entire file:**
 
 ```c
 #ifndef BREAKOUT_GAME_H
 #define BREAKOUT_GAME_H
 
-#define FIELD_LEFT 16
+#define FIELD_LEFT  16
 #define FIELD_RIGHT 240
 
-#define PADDLE_WIDTH 48
+#define PADDLE_WIDTH  48
 #define PADDLE_HEIGHT 8
-#define PADDLE_Y 200
-#define PADDLE_SPEED 3
+#define PADDLE_Y      200
+#define PADDLE_SPEED  3
 
-typedef struct Game {
+typedef struct Game
+{
     int paddle_x;
 } Game;
 
@@ -368,7 +301,22 @@ void game_tick(Game *game, int movement, int action_pressed);
 #endif
 ```
 
+`Game` is the shared state connecting gameplay to drawing: `game.c` updates
+its fields, and `main.c` reads them to decide what to draw. For now it stores
+only the paddle's horizontal position; later we'll add the ball, bricks, and
+score. Constants define the paddle's size, speed, and bounds; resetting and
+ticking are separate operations.
+
+---
+
+### Open `src\game.c`
+
 Create `src\game.c`:
+
+**Goal:** Move the paddle without allowing either end to cross a wall.
+
+<!-- tutorial-edit: {"file":"src/game.c","op":"write"} -->
+**`src\game.c` — create or replace the entire file:**
 
 ```c
 #include "game.h"
@@ -380,12 +328,16 @@ void game_reset(Game *game)
 
 void game_tick(Game *game, int movement, int action_pressed)
 {
-    (void)action_pressed;
+    (void)action_pressed; /* Silence the unused-parameter warning for now. */
     game->paddle_x += movement * PADDLE_SPEED;
     if (game->paddle_x < FIELD_LEFT)
+    {
         game->paddle_x = FIELD_LEFT;
+    }
     if (game->paddle_x + PADDLE_WIDTH > FIELD_RIGHT)
+    {
         game->paddle_x = FIELD_RIGHT - PADDLE_WIDTH;
+    }
 }
 ```
 
@@ -393,19 +345,38 @@ void game_tick(Game *game, int movement, int action_pressed)
 launching in the next step. Signed positions allow subtraction without unsigned
 wraparound; our values fit the SNES compiler's 16-bit `int`.
 
+---
+
+### Open `Makefile`
+
 Add the header dependency to your `Makefile`:
 
-```diff
---- a/Makefile
-+++ b/Makefile
-@@
- src/data.obj: sprites.pic
-+src/main.obj src/game.obj: src/game.h
+**Goal:** Rebuild both C files when their shared gameplay header changes.
 
- clean: cleanBuildRes cleanRom cleanGfx
+<!-- tutorial-edit: {"file":"Makefile","op":"diff-region","context":3} -->
+**`Makefile` — in the file, apply these changes:**
+
+```make
+	$(GFXCONV) -s 8 -R -o 16 -u 16 -p -t png -i $<
+
+src/data.obj: sprites.pic
+src/main.obj src/game.obj: src/game.h # [!code ++]
+
+clean: cleanBuildRes cleanRom cleanGfx
 ```
 
+This dependency makes both object files rebuild when `src\game.h` changes.
+
+---
+
+### Open `src\main.c`
+
 Now replace the text-only `src\main.c` with this complete paddle version:
+
+**Goal:** Draw the three-piece paddle and translate controller input into gameplay.
+
+<!-- tutorial-edit: {"file":"src/main.c","op":"write"} -->
+**`src\main.c` — create or replace the entire file:**
 
 ```c
 #include <snes.h>
@@ -421,7 +392,9 @@ static void draw_game(void)
     int i;
 
     for (i = 0; i < 3; ++i)
+    {
         oamSetXY((i + 1) * 4, game.paddle_x + i * 16, PADDLE_Y);
+    }
 }
 
 static void init_video(void)
@@ -433,21 +406,22 @@ static void init_video(void)
     consoleInitDefaultText(0);
     bgSetGfxPtr(0, 0x3000);
     bgSetMapPtr(0, 0x6800, SC_32x32);
-    oamInitGfxSet(sprite_tiles, 1024, sprite_palette, 32,
-                  0, 0x0000, OBJ_SIZE8_L16);
+    oamInitGfxSet(sprite_tiles, 1024, sprite_palette, 32, 0, 0x0000,
+                  OBJ_SIZE8_L16);
 
     setMode(BG_MODE1, 0);
     bgSetDisable(1);
     bgSetDisable(2);
     oamClear(0, 0);
-    for (i = 0; i < 3; ++i) {
-        oamSet((i + 1) * 4, game.paddle_x + i * 16, PADDLE_Y,
-               3, 0, 0, 10, 0);
+    for (i = 0; i < 3; ++i)
+    {
+        oamSet((i + 1) * 4, game.paddle_x + i * 16, PADDLE_Y, 3, 0, 0, 10, 0);
         oamSetEx((i + 1) * 4, OBJ_LARGE, OBJ_SHOW);
     }
 
     consoleDrawText(1, 3, "##############################");
-    for (row = 4; row < 28; ++row) {
+    for (row = 4; row < 28; ++row)
+    {
         consoleDrawText(1, row, "#");
         consoleDrawText(30, row, "#");
     }
@@ -464,15 +438,20 @@ int main(void)
     game_reset(&game);
     init_video();
 
-    while (1) {
+    while (1)
+    {
         WaitForVBlank();
         held = padsCurrent(0);
         pressed = padsDown(0);
         movement = 0;
         if (held & KEY_LEFT)
+        {
             --movement;
+        }
         if (held & KEY_RIGHT)
+        {
             ++movement;
+        }
         game_tick(&game, movement, pressed & (KEY_B | KEY_START));
         draw_game();
     }
@@ -511,7 +490,7 @@ and it stops at both walls. There is still no ball and nothing to launch. If the
 paddle does not move, map controller 1 (the D-pad, B, and Start) in your
 emulator's input settings and click its window so that it receives the input.
 
-<img width="770" height="729" alt="image" src="https://github.com/user-attachments/assets/a87aa365-605b-4c9b-9f66-324ba34ac55d" />
+![Part 1 after section 2: the movable paddle](screenshots/part1-section2-paddle.png)
 
 
 ---
@@ -521,99 +500,195 @@ emulator's input settings and click its window so that it receives the input.
 We will first implement the ball's **state**, without motion. That gives us a
 small testable change before physics.
 
+---
+
+### Open `src\game.h`
+
 Edit `src\game.h`:
 
-```diff
---- a/src/game.h
-+++ b/src/game.h
-@@
- #define FIELD_RIGHT 240
+**Goal:** Give the ball an 8-by-8 collision rectangle.
 
-+#define BALL_SIZE 8
- #define PADDLE_WIDTH 48
-@@
- #define PADDLE_SPEED 3
+<!-- tutorial-edit: {"file":"src/game.h","op":"diff-region","context":3} -->
+**`src\game.h` — in the file, apply these changes:**
 
-+enum GameState {
-+    STATE_READY,
-+    STATE_PLAYING
-+};
-+
- typedef struct Game {
-     int paddle_x;
-+    int ball_x;
-+    int ball_y;
-+    int vx;
-+    int vy;
-+    int state;
- } Game;
+```c
+#define FIELD_LEFT  16
+#define FIELD_RIGHT 240
+
+#define BALL_SIZE     8 // [!code ++]
+#define PADDLE_WIDTH  48
+#define PADDLE_HEIGHT 8
+#define PADDLE_Y      200
 ```
+
+`BALL_SIZE` will be shared by positioning, rendering, and collision checks.
+
+**Goal:** Define names for the ready and playing game states.
+
+<!-- tutorial-edit: {"file":"src/game.h","op":"diff-region","context":3} -->
+**`src\game.h` — in the file, apply these changes:**
+
+```c
+#define PADDLE_Y      200
+#define PADDLE_SPEED  3
+
+enum GameState // [!code ++]
+{ // [!code ++]
+    STATE_READY, // [!code ++]
+    STATE_PLAYING // [!code ++]
+}; // [!code ++]
+ // [!code ++]
+typedef struct Game
+{
+    int paddle_x;
+```
+
+The enum names the two states; motion will later run only in `STATE_PLAYING`.
+
+**Goal:** Store the ball's position, velocity, and launch state.
+
+<!-- tutorial-edit: {"file":"src/game.h","op":"diff-region","context":3} -->
+**`src\game.h` — in the file, apply these changes:**
+
+```c
+typedef struct Game
+{
+    int paddle_x;
+    int ball_x; // [!code ++]
+    int ball_y; // [!code ++]
+    int vx; // [!code ++]
+    int vy; // [!code ++]
+    int state; // [!code ++]
+} Game;
+
+void game_reset(Game *game);
+```
+
+The coordinates locate the ball, velocities describe its movement, and `state`
+determines whether it remains attached.
+
+---
+
+### Open `src\game.c`
 
 Add `attach_ball` immediately after the include in `src\game.c`, then update
 the two existing functions:
 
-```diff
---- a/src/game.c
-+++ b/src/game.c
-@@
- #include "game.h"
+**Goal:** Center the ball above the paddle and prepare its launch velocity.
 
-+static void attach_ball(Game *game)
-+{
-+    game->ball_x = game->paddle_x + (PADDLE_WIDTH - BALL_SIZE) / 2;
-+    game->ball_y = PADDLE_Y - BALL_SIZE;
-+    game->vx = 1;
-+    game->vy = -3;
-+}
-+
- void game_reset(Game *game)
- {
-     game->paddle_x = (FIELD_LEFT + FIELD_RIGHT - PADDLE_WIDTH) / 2;
-+    game->state = STATE_READY;
-+    attach_ball(game);
- }
-@@
- void game_tick(Game *game, int movement, int action_pressed)
- {
--    (void)action_pressed;
-     game->paddle_x += movement * PADDLE_SPEED;
-@@
-     if (game->paddle_x + PADDLE_WIDTH > FIELD_RIGHT)
-         game->paddle_x = FIELD_RIGHT - PADDLE_WIDTH;
-+
-+    if (game->state == STATE_READY) {
-+        attach_ball(game);
-+        if (action_pressed)
-+            game->state = STATE_PLAYING;
-+        return;
-+    }
- }
+<!-- tutorial-edit: {"file":"src/game.c","op":"add-function","name":"attach_ball","before":"game_reset"} -->
+**`src\game.c` — add this complete `attach_ball` function immediately before `game_reset`:**
+
+```c
+static void attach_ball(Game *game) // [!code ++]
+{ // [!code ++]
+    game->ball_x = game->paddle_x + (PADDLE_WIDTH - BALL_SIZE) / 2; // [!code ++]
+    game->ball_y = PADDLE_Y - BALL_SIZE; // [!code ++]
+    game->vx = 1; // [!code ++]
+    game->vy = -3; // [!code ++]
+} // [!code ++]
+```
+
+The helper derives both coordinates from the paddle rather than storing a
+separate attachment offset.
+
+**Goal:** Start each game with the ball attached and waiting to launch.
+
+<!-- tutorial-edit: {"file":"src/game.c","op":"diff-region","function":"game_reset","context":3} -->
+**`src\game.c` — in `game_reset`, apply these changes:**
+
+```c
+void game_reset(Game *game)
+{
+    game->paddle_x = (FIELD_LEFT + FIELD_RIGHT - PADDLE_WIDTH) / 2;
+    game->state = STATE_READY; // [!code ++]
+    attach_ball(game); // [!code ++]
+}
+```
+
+Resetting selects `STATE_READY` before positioning the ball.
+
+**Goal:** Let the tick function use its action-button argument.
+
+<!-- tutorial-edit: {"file":"src/game.c","op":"diff-region","function":"game_tick","context":3} -->
+**`src\game.c` — in `game_tick`, apply these changes:**
+
+```c
+void game_tick(Game *game, int movement, int action_pressed)
+{
+    (void)action_pressed; /* Silence the unused-parameter warning for now. */ // [!code --]
+    game->paddle_x += movement * PADDLE_SPEED;
+    if (game->paddle_x < FIELD_LEFT)
+    {
+```
+
+The unused-argument cast is no longer needed because the next branch reads it.
+
+**Goal:** Keep the ball attached until a fresh action press launches it.
+
+<!-- tutorial-edit: {"file":"src/game.c","op":"diff-region","function":"game_tick","context":3} -->
+**`src\game.c` — in `game_tick`, apply these changes:**
+
+```c
+    if (game->paddle_x + PADDLE_WIDTH > FIELD_RIGHT)
+    {
+        game->paddle_x = FIELD_RIGHT - PADDLE_WIDTH;
+    }
+ // [!code ++]
+    if (game->state == STATE_READY) // [!code ++]
+    { // [!code ++]
+        attach_ball(game); // [!code ++]
+        if (action_pressed) // [!code ++]
+        { // [!code ++]
+            game->state = STATE_PLAYING; // [!code ++]
+        } // [!code ++]
+        return; // [!code ++]
+    } // [!code ++]
+}
 ```
 
 The centering offset is `(48 - 8) / 2`, or 20 pixels. `vx` and `vy` are
 velocities; negative Y will mean upward movement. A new B/Start press launches,
 not a continuously held button.
 
-Add the ball's drawing and initial sprite definition in `src\main.c`. Both
-insertions are shown next to the existing paddle code:
+---
 
-```diff
---- a/src/main.c
-+++ b/src/main.c
-@@
- static void draw_game(void)
- {
-     int i;
+### Open `src\main.c`
 
-+    oamSetXY(0, game.ball_x, game.ball_y);
-     for (i = 0; i < 3; ++i)
-         oamSetXY((i + 1) * 4, game.paddle_x + i * 16, PADDLE_Y);
-@@
-     bgSetDisable(2);
-     oamClear(0, 0);
-+    oamSet(0, game.ball_x, game.ball_y, 3, 0, 0, 12, 0);
-+    oamSetEx(0, OBJ_SMALL, OBJ_SHOW);
-     for (i = 0; i < 3; ++i) {
+Add the ball's drawing and initial sprite definition in `src\main.c`:
+
+**Goal:** Make the ball sprite follow the ball's gameplay coordinates.
+
+<!-- tutorial-edit: {"file":"src/main.c","op":"diff-region","function":"draw_game","context":3} -->
+**`src\main.c` — in `draw_game`, apply these changes:**
+
+```c
+{
+    int i;
+
+    oamSetXY(0, game.ball_x, game.ball_y); // [!code ++]
+    for (i = 0; i < 3; ++i)
+    {
+        oamSetXY((i + 1) * 4, game.paddle_x + i * 16, PADDLE_Y);
+    }
+```
+
+Updating OAM entry 0 changes the ball's displayed position each frame.
+
+**Goal:** Give the ball its artwork and small hardware sprite size.
+
+<!-- tutorial-edit: {"file":"src/main.c","op":"diff-region","function":"init_video","context":3} -->
+**`src\main.c` — in `init_video`, apply these changes:**
+
+```c
+    bgSetDisable(1);
+    bgSetDisable(2);
+    oamClear(0, 0);
+    oamSet(0, game.ball_x, game.ball_y, 3, 0, 0, 12, 0); // [!code ++]
+    oamSetEx(0, OBJ_SMALL, OBJ_SHOW); // [!code ++]
+    for (i = 0; i < 3; ++i)
+    {
+        oamSet((i + 1) * 4, game.paddle_x + i * 16, PADDLE_Y, 3, 0, 0, 10, 0);
 ```
 
 The ball uses tile 12, offset 0, and the small 8-by-8 sprite size.
@@ -626,26 +701,55 @@ make
 launch position while the paddle can move away. This frozen launched ball is
 intentional; we have not written its movement yet.
 
-<img width="770" height="729" alt="image" src="https://github.com/user-attachments/assets/193de774-a885-4ece-ad7b-676b66ef90d7" />
+![Part 1 after section 3: the launched ball](screenshots/part1-section3-launch.png)
 
 
 ---
 
 ## 4. Move the ball and bounce off walls
 
+---
+
+### Open `src\game.h`
+
 Add the vertical bounds and substep limit in `src\game.h`:
 
-```diff
---- a/src/game.h
-+++ b/src/game.h
-@@
- #define FIELD_LEFT 16
- #define FIELD_RIGHT 240
-+#define FIELD_TOP 32
-+#define FIELD_BOTTOM 224
+**Goal:** Define the top wall and the bottom boundary where the ball is lost.
 
- #define BALL_SIZE 8
-+#define BALL_SUBSTEPS 3
+<!-- tutorial-edit: {"file":"src/game.h","op":"diff-region","context":3} -->
+**`src\game.h` — in the file, apply these changes:**
+
+```c
+#ifndef BREAKOUT_GAME_H
+#define BREAKOUT_GAME_H
+
+#define FIELD_LEFT  16 // [!code --]
+#define FIELD_LEFT   16 // [!code ++]
+#define FIELD_RIGHT 240 // [!code --]
+#define FIELD_RIGHT  240 // [!code ++]
+#define FIELD_TOP    32 // [!code ++]
+#define FIELD_BOTTOM 224 // [!code ++]
+
+#define BALL_SIZE     8
+#define PADDLE_WIDTH  48
+```
+
+`FIELD_TOP` is a reflecting boundary; `FIELD_BOTTOM` is an offscreen loss
+threshold, not a wall.
+
+**Goal:** Limit each frame to three one-pixel movement attempts per axis.
+
+<!-- tutorial-edit: {"file":"src/game.h","op":"diff-region","context":3} -->
+**`src\game.h` — in the file, apply these changes:**
+
+```c
+#define FIELD_BOTTOM 224
+
+#define BALL_SIZE     8
+#define BALL_SUBSTEPS 3 // [!code ++]
+#define PADDLE_WIDTH  48
+#define PADDLE_HEIGHT 8
+#define PADDLE_Y      200
 ```
 
 Instead of jumping several pixels and then checking overlap, test each
@@ -653,74 +757,129 @@ one-pixel **candidate position**. If it crosses a wall, reverse the velocity
 and keep the old position. This will also prevent jumping through thin bricks
 later. X and Y are handled separately, with X first at corners.
 
+---
+
+### Open `src\game.c`
+
 In `src\game.c`, insert `magnitude` before `attach_ball`, and the movement
 helpers between `game_reset` and `game_tick`:
 
-```diff
---- a/src/game.c
-+++ b/src/game.c
-@@
- #include "game.h"
+**Goal:** Count movement steps independently of the velocity's direction.
 
-+static int magnitude(int value)
-+{
-+    if (value < 0)
-+        return -value;
-+    return value;
-+}
-+
- static void attach_ball(Game *game)
-@@
-     attach_ball(game);
- }
+<!-- tutorial-edit: {"file":"src/game.c","op":"add-function","name":"magnitude","before":"attach_ball"} -->
+**`src\game.c` — add this complete `magnitude` function immediately before `attach_ball`:**
 
-+static void move_ball_x(Game *game)
-+{
-+    int next_x;
-+
-+    next_x = game->ball_x + (game->vx > 0 ? 1 : -1);
-+    if (next_x < FIELD_LEFT || next_x + BALL_SIZE > FIELD_RIGHT) {
-+        game->vx = -game->vx;
-+    } else {
-+        game->ball_x = next_x;
-+    }
-+}
-+
-+static void move_ball_y(Game *game)
-+{
-+    int next_y;
-+
-+    next_y = game->ball_y + (game->vy > 0 ? 1 : -1);
-+    if (next_y < FIELD_TOP) {
-+        game->vy = -game->vy;
-+    } else {
-+        game->ball_y = next_y;
-+    }
-+}
-+
- void game_tick(Game *game, int movement, int action_pressed)
- {
-+    int step;
-+
-     game->paddle_x += movement * PADDLE_SPEED;
-@@
-         if (action_pressed)
-             game->state = STATE_PLAYING;
-         return;
-     }
-+
-+    for (step = 0; step < BALL_SUBSTEPS; ++step) {
-+        if (step < magnitude(game->vx))
-+            move_ball_x(game);
-+        if (step < magnitude(game->vy))
-+            move_ball_y(game);
-+        if (game->ball_y >= FIELD_BOTTOM) {
-+            game->state = STATE_READY;
-+            attach_ball(game);
-+            return;
-+        }
-+    }
- }
+```c
+static int magnitude(int value) // [!code ++]
+{ // [!code ++]
+    if (value < 0) // [!code ++]
+    { // [!code ++]
+        return -value; // [!code ++]
+    } // [!code ++]
+    return value; // [!code ++]
+} // [!code ++]
+```
+
+`magnitude` returns the positive size of a signed velocity.
+
+**Goal:** Reject horizontal positions beyond the walls and reverse direction.
+
+<!-- tutorial-edit: {"file":"src/game.c","op":"add-function","name":"move_ball_x","before":"game_tick"} -->
+**`src\game.c` — add this complete `move_ball_x` function immediately before `game_tick`:**
+
+```c
+static void move_ball_x(Game *game) // [!code ++]
+{ // [!code ++]
+    int next_x; // [!code ++]
+ // [!code ++]
+    next_x = game->ball_x + (game->vx > 0 ? 1 : -1); // [!code ++]
+    if (next_x < FIELD_LEFT || next_x + BALL_SIZE > FIELD_RIGHT) // [!code ++]
+    { // [!code ++]
+        game->vx = -game->vx; // [!code ++]
+    } // [!code ++]
+    else // [!code ++]
+    { // [!code ++]
+        game->ball_x = next_x; // [!code ++]
+    } // [!code ++]
+} // [!code ++]
+```
+
+The helper attempts one pixel in the velocity's direction. A collision reverses
+`vx` without moving into the wall.
+
+**Goal:** Reflect the ball from the ceiling while leaving the bottom open.
+
+<!-- tutorial-edit: {"file":"src/game.c","op":"add-function","name":"move_ball_y","before":"game_tick"} -->
+**`src\game.c` — add this complete `move_ball_y` function immediately before `game_tick`:**
+
+```c
+static void move_ball_y(Game *game) // [!code ++]
+{ // [!code ++]
+    int next_y; // [!code ++]
+ // [!code ++]
+    next_y = game->ball_y + (game->vy > 0 ? 1 : -1); // [!code ++]
+    if (next_y < FIELD_TOP) // [!code ++]
+    { // [!code ++]
+        game->vy = -game->vy; // [!code ++]
+    } // [!code ++]
+    else // [!code ++]
+    { // [!code ++]
+        game->ball_y = next_y; // [!code ++]
+    } // [!code ++]
+} // [!code ++]
+```
+
+The Y helper tests one candidate pixel and reverses `vy` only at the ceiling.
+
+**Goal:** Track the current one-pixel substep in the tick function.
+
+<!-- tutorial-edit: {"file":"src/game.c","op":"diff-region","function":"game_tick","context":3} -->
+**`src\game.c` — in `game_tick`, apply these changes:**
+
+```c
+void game_tick(Game *game, int movement, int action_pressed)
+{
+    int step; // [!code ++]
+ // [!code ++]
+    game->paddle_x += movement * PADDLE_SPEED;
+    if (game->paddle_x < FIELD_LEFT)
+    {
+```
+
+**Goal:** Move both axes at their configured speeds and recover an offscreen ball.
+
+<!-- tutorial-edit: {"file":"src/game.c","op":"diff-region","function":"game_tick","context":3} -->
+**`src\game.c` — in `game_tick`, apply these changes:**
+
+```c
+    if (game->state == STATE_READY)
+    {
+        attach_ball(game);
+        if (action_pressed)
+        {
+            game->state = STATE_PLAYING;
+        }
+        return;
+    }
+ // [!code ++]
+    for (step = 0; step < BALL_SUBSTEPS; ++step) // [!code ++]
+    { // [!code ++]
+        if (step < magnitude(game->vx)) // [!code ++]
+        { // [!code ++]
+            move_ball_x(game); // [!code ++]
+        } // [!code ++]
+        if (step < magnitude(game->vy)) // [!code ++]
+        { // [!code ++]
+            move_ball_y(game); // [!code ++]
+        } // [!code ++]
+        if (game->ball_y >= FIELD_BOTTOM) // [!code ++]
+        { // [!code ++]
+            game->state = STATE_READY; // [!code ++]
+            attach_ball(game); // [!code ++]
+            return; // [!code ++]
+        } // [!code ++]
+    } // [!code ++]
+}
 ```
 
 There is no bottom wall. For now, falling offscreen simply reattaches the ball
@@ -728,78 +887,84 @@ so you can launch again. Lives will replace that temporary behavior in step 7.
 
 Keep every velocity component's magnitude at most `BALL_SUBSTEPS` (currently
 3). The loop deliberately skips an axis when its velocity is zero.
-One tick is one frame; these speeds are tuned for NTSC's 60 Hz. PAL's 50 Hz
-will be slower in real time until you add timing compensation.
 
 ```sh
 make
 ```
 
-**Checkpoint:** first move the paddle to the right wall, then press B or Start.
-The ball travels up and right, rebounds off the right wall, rebounds off the top
-wall, falls offscreen, and reattaches. It ignores the paddle for now. No bricks
-should exist yet.
+**Checkpoint:** Move the paddle to the right wall, then launch with B or Start.
+The ball rebounds off the right and top walls, falls offscreen, and reattaches.
+It still ignores the paddle, and there are no bricks yet.
 
-The ball always launches toward the right for now. If you launch from the
-centered paddle, the right-wall rebound happens down at paddle height, a split
-second before the ball falls, and from the left wall there is no side rebound
-at all. The left wall comes into play once step 5 lets the paddle send the ball
-left.
-
-<img width="770" height="729" alt="image" src="https://github.com/user-attachments/assets/c24b731f-ab87-412d-8835-2213afe23f93" />
-
+![Part 1 after section 4: wall rebounds](screenshots/part1-section4-walls.png)
 
 ---
 
 ## 5. Bounce off the paddle
 
 A paddle contact must be downward, cross the paddle's top from above, and
-overlap horizontally. Otherwise a missed ball could be caught from underneath.
+overlap horizontally. Otherwise a missed ball could bounce off the paddle from underneath.
+
+---
+
+### Open `src\game.c`
 
 Add `paddle_bounce` between `move_ball_x` and `move_ball_y` in `src\game.c`,
 then extend the existing Y movement's `if`/`else` chain:
 
-```diff
---- a/src/game.c
-+++ b/src/game.c
-@@
-         game->ball_x = next_x;
-     }
- }
+**Goal:** Select an upward rebound from the ball's contact point on the paddle.
 
-+static void paddle_bounce(Game *game)
-+{
-+    int hit_position;
-+
-+    hit_position = game->ball_x + BALL_SIZE / 2 - game->paddle_x;
-+    if (hit_position < PADDLE_WIDTH / 3) {
-+        game->vx = -2;
-+        game->vy = -2;
-+    } else if (hit_position >= 2 * PADDLE_WIDTH / 3) {
-+        game->vx = 2;
-+        game->vy = -2;
-+    } else {
-+        game->vx = game->vx < 0 ? -1 : 1;
-+        game->vy = -3;
-+    }
-+}
-+
- static void move_ball_y(Game *game)
-@@
-     next_y = game->ball_y + (game->vy > 0 ? 1 : -1);
-     if (next_y < FIELD_TOP) {
-         game->vy = -game->vy;
-+    } else if (game->vy > 0 &&
-+               game->ball_y + BALL_SIZE <= PADDLE_Y &&
-+               next_y + BALL_SIZE > PADDLE_Y &&
-+               game->ball_x + BALL_SIZE > game->paddle_x &&
-+               game->ball_x < game->paddle_x + PADDLE_WIDTH) {
-+        game->ball_y = PADDLE_Y - BALL_SIZE;
-+        paddle_bounce(game);
-     } else {
-         game->ball_y = next_y;
-     }
- }
+<!-- tutorial-edit: {"file":"src/game.c","op":"add-function","name":"paddle_bounce","before":"move_ball_y"} -->
+**`src\game.c` — add this complete `paddle_bounce` function immediately before `move_ball_y`:**
+
+```c
+static void paddle_bounce(Game *game) // [!code ++]
+{ // [!code ++]
+    int hit_position; // [!code ++]
+ // [!code ++]
+    hit_position = game->ball_x + BALL_SIZE / 2 - game->paddle_x; // [!code ++]
+    if (hit_position < PADDLE_WIDTH / 3) // [!code ++]
+    { // [!code ++]
+        game->vx = -2; // [!code ++]
+        game->vy = -2; // [!code ++]
+    } // [!code ++]
+    else if (hit_position >= 2 * PADDLE_WIDTH / 3) // [!code ++]
+    { // [!code ++]
+        game->vx = 2; // [!code ++]
+        game->vy = -2; // [!code ++]
+    } // [!code ++]
+    else // [!code ++]
+    { // [!code ++]
+        game->vx = game->vx < 0 ? -1 : 1; // [!code ++]
+        game->vy = -3; // [!code ++]
+    } // [!code ++]
+} // [!code ++]
+```
+
+The ball center selects the left, middle, or right third; the middle keeps its
+horizontal direction.
+
+**Goal:** Bounce descending balls off the paddle's top, never from underneath.
+
+<!-- tutorial-edit: {"file":"src/game.c","op":"diff-region","function":"move_ball_y","context":3} -->
+**`src\game.c` — in `move_ball_y`, apply these changes:**
+
+```c
+    if (next_y < FIELD_TOP)
+    {
+        game->vy = -game->vy;
+    }
+    else if (game->vy > 0 && game->ball_y + BALL_SIZE <= PADDLE_Y && // [!code ++]
+             next_y + BALL_SIZE > PADDLE_Y && // [!code ++]
+             game->ball_x + BALL_SIZE > game->paddle_x && // [!code ++]
+             game->ball_x < game->paddle_x + PADDLE_WIDTH) // [!code ++]
+    { // [!code ++]
+        game->ball_y = PADDLE_Y - BALL_SIZE; // [!code ++]
+        paddle_bounce(game); // [!code ++]
+    } // [!code ++]
+    else
+    {
+        game->ball_y = next_y;
 ```
 
 We place the ball just above the paddle on contact. Its center determines the
@@ -818,9 +983,11 @@ identical mathematical speed in every zone.
 make
 ```
 
-**Checkpoint:** catch a descending ball. It rebounds upward; catches near the
+**Checkpoint:** let a descending ball hit the paddle. It bounces upward; hits near the
 left/right ends send it in those directions. Deliberately miss and verify
 that it still reattaches for another launch.
+
+![Part 1 after section 5: paddle rebounds](screenshots/part1-section5-paddle-bounce.png)
 
 ---
 
@@ -828,62 +995,95 @@ that it still reattaches for another launch.
 
 ### Store the grid
 
+---
+
+### Open `src\game.h`
+
 Extend `src\game.h` with brick dimensions and data:
 
-```diff
---- a/src/game.h
-+++ b/src/game.h
-@@
- #define PADDLE_SPEED 3
+**Goal:** Define the brick grid's dimensions, position, and spacing.
 
-+#define BRICK_COLS 10
-+#define BRICK_ROWS 5
-+#define BRICK_COUNT (BRICK_COLS * BRICK_ROWS)
-+#define BRICK_X 30
-+#define BRICK_Y 48
-+#define BRICK_WIDTH 16
-+#define BRICK_HEIGHT 8
-+#define BRICK_PITCH_X 20
-+#define BRICK_PITCH_Y 16
-+
- enum GameState {
-@@
-     int vx;
-     int vy;
-+    unsigned int score;
-+    int bricks_left;
-     int state;
-+    unsigned char bricks[BRICK_COUNT];
- } Game;
+<!-- tutorial-edit: {"file":"src/game.h","op":"diff-region","context":3} -->
+**`src\game.h` — in the file, apply these changes:**
+
+```c
+#define PADDLE_Y      200
+#define PADDLE_SPEED  3
+
+#define BRICK_COLS    10 // [!code ++]
+#define BRICK_ROWS    5 // [!code ++]
+#define BRICK_COUNT   (BRICK_COLS * BRICK_ROWS) // [!code ++]
+#define BRICK_X       30 // [!code ++]
+#define BRICK_Y       48 // [!code ++]
+#define BRICK_WIDTH   16 // [!code ++]
+#define BRICK_HEIGHT  8 // [!code ++]
+#define BRICK_PITCH_X 20 // [!code ++]
+#define BRICK_PITCH_Y 16 // [!code ++]
+ // [!code ++]
+enum GameState
+{
+    STATE_READY,
+```
+
+The pitch measures the distance between brick origins, including the gap.
+
+**Goal:** Track live bricks and score independently of their graphics.
+
+<!-- tutorial-edit: {"file":"src/game.h","op":"diff-region","context":3} -->
+**`src\game.h` — in the file, apply these changes:**
+
+```c
+    int ball_y;
+    int vx;
+    int vy;
+    unsigned int score; // [!code ++]
+    int bricks_left; // [!code ++]
+    int state;
+    unsigned char bricks[BRICK_COUNT]; // [!code ++]
+} Game;
+
+void game_reset(Game *game);
 ```
 
 `bricks[index]` is 1 when alive and 0 when destroyed. The pitch includes the gap:
 `index = row * BRICK_COLS + col`, X is `BRICK_X + col * BRICK_PITCH_X`, and
 Y is `BRICK_Y + row * BRICK_PITCH_Y`.
 
+---
+
+### Open `src\game.c`
+
 Initialize all bricks and score in `src\game.c`:
 
-```diff
---- a/src/game.c
-+++ b/src/game.c
-@@
- void game_reset(Game *game)
- {
-+    int i;
-+
-     game->paddle_x = (FIELD_LEFT + FIELD_RIGHT - PADDLE_WIDTH) / 2;
-+    game->score = 0;
-+    game->bricks_left = BRICK_COUNT;
-     game->state = STATE_READY;
-+    for (i = 0; i < BRICK_COUNT; ++i)
-+        game->bricks[i] = 1;
-     attach_ball(game);
- }
+**Goal:** Restore all fifty bricks and clear the score on a new game.
+
+<!-- tutorial-edit: {"file":"src/game.c","op":"diff-region","function":"game_reset","context":3} -->
+**`src\game.c` — in `game_reset`, apply these changes:**
+
+```c
+void game_reset(Game *game)
+{
+    int i; // [!code ++]
+ // [!code ++]
+    game->paddle_x = (FIELD_LEFT + FIELD_RIGHT - PADDLE_WIDTH) / 2;
+    game->score = 0; // [!code ++]
+    game->bricks_left = BRICK_COUNT; // [!code ++]
+    game->state = STATE_READY;
+    for (i = 0; i < BRICK_COUNT; ++i) // [!code ++]
+    { // [!code ++]
+        game->bricks[i] = 1; // [!code ++]
+    } // [!code ++]
+    attach_ball(game);
+}
 ```
+
+The loop marks every brick alive while `bricks_left` caches the total.
 
 ### Test candidate rectangles against live bricks
 
 Two rectangles overlap only when all four inequalities hold:
+
+**Collision example — no file edit; read these inequalities:**
 
 ```c
 x + BALL_SIZE > brick_x &&
@@ -898,61 +1098,100 @@ to avoid examining every brick when the ball is far from the wall.
 Insert this complete helper **between `game_reset` and `move_ball_x`** in
 `src\game.c`. Then add its calls to the existing X/Y collision chains:
 
-```diff
---- a/src/game.c
-+++ b/src/game.c
-@@
-     attach_ball(game);
- }
+**Goal:** Remove the first live brick overlapping a candidate ball rectangle.
 
-+static int hit_brick(Game *game, int x, int y)
-+{
-+    int row;
-+    int col;
-+    int brick_x;
-+    int brick_y;
-+    int index;
-+
-+    if (y + BALL_SIZE <= BRICK_Y ||
-+        y >= BRICK_Y + (BRICK_ROWS - 1) * BRICK_PITCH_Y + BRICK_HEIGHT)
-+        return 0;
-+
-+    for (row = 0; row < BRICK_ROWS; ++row) {
-+        brick_y = BRICK_Y + row * BRICK_PITCH_Y;
-+        if (y + BALL_SIZE <= brick_y || y >= brick_y + BRICK_HEIGHT)
-+            continue;
-+
-+        for (col = 0; col < BRICK_COLS; ++col) {
-+            index = row * BRICK_COLS + col;
-+            if (!game->bricks[index])
-+                continue;
-+            brick_x = BRICK_X + col * BRICK_PITCH_X;
-+            if (x + BALL_SIZE > brick_x && x < brick_x + BRICK_WIDTH) {
-+                game->bricks[index] = 0;
-+                game->score += 10;
-+                --game->bricks_left;
-+                return 1;
-+            }
-+        }
-+    }
-+    return 0;
-+}
-+
- static void move_ball_x(Game *game)
-@@
-     if (next_x < FIELD_LEFT || next_x + BALL_SIZE > FIELD_RIGHT) {
-         game->vx = -game->vx;
-+    } else if (hit_brick(game, next_x, game->ball_y)) {
-+        game->vx = -game->vx;
-     } else {
-         game->ball_x = next_x;
-@@
-         game->ball_y = PADDLE_Y - BALL_SIZE;
-         paddle_bounce(game);
-+    } else if (hit_brick(game, game->ball_x, next_y)) {
-+        game->vy = -game->vy;
-     } else {
-         game->ball_y = next_y;
+<!-- tutorial-edit: {"file":"src/game.c","op":"add-function","name":"hit_brick","before":"move_ball_x"} -->
+**`src\game.c` — add this complete `hit_brick` function immediately before `move_ball_x`:**
+
+```c
+static int hit_brick(Game *game, int x, int y) // [!code ++]
+{ // [!code ++]
+    int row; // [!code ++]
+    int col; // [!code ++]
+    int brick_x; // [!code ++]
+    int brick_y; // [!code ++]
+    int index; // [!code ++]
+ // [!code ++]
+    if (y + BALL_SIZE <= BRICK_Y || // [!code ++]
+        y >= BRICK_Y + (BRICK_ROWS - 1) * BRICK_PITCH_Y + BRICK_HEIGHT) // [!code ++]
+    { // [!code ++]
+        return 0; // [!code ++]
+    } // [!code ++]
+ // [!code ++]
+    for (row = 0; row < BRICK_ROWS; ++row) // [!code ++]
+    { // [!code ++]
+        brick_y = BRICK_Y + row * BRICK_PITCH_Y; // [!code ++]
+        if (y + BALL_SIZE <= brick_y || y >= brick_y + BRICK_HEIGHT) // [!code ++]
+        { // [!code ++]
+            continue; // [!code ++]
+        } // [!code ++]
+ // [!code ++]
+        for (col = 0; col < BRICK_COLS; ++col) // [!code ++]
+        { // [!code ++]
+            index = row * BRICK_COLS + col; // [!code ++]
+            if (!game->bricks[index]) // [!code ++]
+            { // [!code ++]
+                continue; // [!code ++]
+            } // [!code ++]
+            brick_x = BRICK_X + col * BRICK_PITCH_X; // [!code ++]
+            if (x + BALL_SIZE > brick_x && x < brick_x + BRICK_WIDTH) // [!code ++]
+            { // [!code ++]
+                game->bricks[index] = 0; // [!code ++]
+                game->score += 10; // [!code ++]
+                --game->bricks_left; // [!code ++]
+                return 1; // [!code ++]
+            } // [!code ++]
+        } // [!code ++]
+    } // [!code ++]
+    return 0; // [!code ++]
+} // [!code ++]
+```
+
+The helper rejects distant rows, skips destroyed bricks, and awards ten points
+when it finds the first overlap.
+
+**Goal:** Bounce horizontally when the next X position would enter a brick.
+
+<!-- tutorial-edit: {"file":"src/game.c","op":"diff-region","function":"move_ball_x","context":3} -->
+**`src\game.c` — in `move_ball_x`, apply these changes:**
+
+```c
+    if (next_x < FIELD_LEFT || next_x + BALL_SIZE > FIELD_RIGHT)
+    {
+        game->vx = -game->vx;
+    }
+    else if (hit_brick(game, next_x, game->ball_y)) // [!code ++]
+    { // [!code ++]
+        game->vx = -game->vx; // [!code ++]
+    } // [!code ++]
+    else
+    {
+        game->ball_x = next_x;
+```
+
+A hit reverses `vx` and rejects that candidate coordinate.
+
+**Goal:** Apply the same brick collision test to vertical movement.
+
+<!-- tutorial-edit: {"file":"src/game.c","op":"diff-region","function":"move_ball_y","context":3} -->
+**`src\game.c` — in `move_ball_y`, apply these changes:**
+
+```c
+    else if (game->vy > 0 && game->ball_y + BALL_SIZE <= PADDLE_Y &&
+             next_y + BALL_SIZE > PADDLE_Y &&
+             game->ball_x + BALL_SIZE > game->paddle_x &&
+             game->ball_x < game->paddle_x + PADDLE_WIDTH)
+    {
+        game->ball_y = PADDLE_Y - BALL_SIZE;
+        paddle_bounce(game);
+    }
+    else if (hit_brick(game, game->ball_x, next_y)) // [!code ++]
+    { // [!code ++]
+        game->vy = -game->vy; // [!code ++]
+    } // [!code ++]
+    else
+    {
+        game->ball_y = next_y;
 ```
 
 Each hit removes one live brick, adds ten points, and reverses the tested axis.
@@ -960,57 +1199,108 @@ The candidate position is rejected, so the ball is not left inside the brick.
 
 ### Draw only changed bricks
 
+---
+
+### Open `src\main.c`
+
 Add the cache and renderer **above `draw_game`** in `src\main.c`, then call
 it after drawing the paddle. The initialization edit is next to `oamClear`:
 
-```diff
---- a/src/main.c
-+++ b/src/main.c
-@@
- Game game;
+**Goal:** Cache displayed brick states to avoid redundant sprite updates.
 
-+static unsigned char shown_alive[BRICK_COUNT];
-+static int shown_bricks = -1;
-+
-+static void draw_bricks(void)
-+{
-+    int index;
-+    int id;
-+
-+    if (shown_bricks == game.bricks_left)
-+        return;
-+
-+    for (index = 0; index < BRICK_COUNT; ++index) {
-+        if (shown_alive[index] == game.bricks[index])
-+            continue;
-+
-+        id = (index + 4) * 4;
-+        if (game.bricks[index]) {
-+            oamSet(id, BRICK_X + (index % BRICK_COLS) * BRICK_PITCH_X,
-+                   BRICK_Y + (index / BRICK_COLS) * BRICK_PITCH_Y,
-+                   3, 0, 0, (index / BRICK_COLS) * 2, 0);
-+            oamSetEx(id, OBJ_LARGE, OBJ_SHOW);
-+        } else {
-+            oamSetVisible(id, OBJ_HIDE);
-+        }
-+        shown_alive[index] = game.bricks[index];
-+    }
-+    shown_bricks = game.bricks_left;
-+}
-+
- static void draw_game(void)
-@@
-     for (i = 0; i < 3; ++i)
-         oamSetXY((i + 1) * 4, game.paddle_x + i * 16, PADDLE_Y);
-+    draw_bricks();
- }
-@@
-     bgSetDisable(2);
-     oamClear(0, 0);
-+    for (i = 0; i < BRICK_COUNT; ++i)
-+        shown_alive[i] = 0;
-+
-     oamSet(0, game.ball_x, game.ball_y, 3, 0, 0, 12, 0);
+<!-- tutorial-edit: {"file":"src/main.c","op":"diff-region","scope_before":"draw_game","context":3} -->
+**`src\main.c` — in file-scope declarations before `draw_game`, apply these changes:**
+
+```c
+extern u8 sprite_palette[];
+
+Game game;
+ // [!code ++]
+static unsigned char shown_alive[BRICK_COUNT]; // [!code ++]
+static int shown_bricks = -1; // [!code ++]
+
+```
+
+The array tracks individual sprite visibility; the count detects changes in
+this single-level game.
+
+**Goal:** Show restored bricks and hide destroyed ones when their state changes.
+
+<!-- tutorial-edit: {"file":"src/main.c","op":"add-function","name":"draw_bricks","before":"draw_game"} -->
+**`src\main.c` — add this complete `draw_bricks` function immediately before `draw_game`:**
+
+```c
+static void draw_bricks(void) // [!code ++]
+{ // [!code ++]
+    int index; // [!code ++]
+    int id; // [!code ++]
+ // [!code ++]
+    if (shown_bricks == game.bricks_left) // [!code ++]
+    { // [!code ++]
+        return; // [!code ++]
+    } // [!code ++]
+ // [!code ++]
+    for (index = 0; index < BRICK_COUNT; ++index) // [!code ++]
+    { // [!code ++]
+        if (shown_alive[index] == game.bricks[index]) // [!code ++]
+        { // [!code ++]
+            continue; // [!code ++]
+        } // [!code ++]
+ // [!code ++]
+        id = (index + 4) * 4; // [!code ++]
+        if (game.bricks[index]) // [!code ++]
+        { // [!code ++]
+            oamSet(id, BRICK_X + (index % BRICK_COLS) * BRICK_PITCH_X, // [!code ++]
+                   BRICK_Y + (index / BRICK_COLS) * BRICK_PITCH_Y, 3, 0, 0, // [!code ++]
+                   (index / BRICK_COLS) * 2, 0); // [!code ++]
+            oamSetEx(id, OBJ_LARGE, OBJ_SHOW); // [!code ++]
+        } // [!code ++]
+        else // [!code ++]
+        { // [!code ++]
+            oamSetVisible(id, OBJ_HIDE); // [!code ++]
+        } // [!code ++]
+        shown_alive[index] = game.bricks[index]; // [!code ++]
+    } // [!code ++]
+    shown_bricks = game.bricks_left; // [!code ++]
+} // [!code ++]
+```
+
+Brick slots follow the ball and paddle. Restoring a brick resets its position,
+tile, size, and visibility; destroying it hides its slot.
+
+**Goal:** Synchronize brick sprites after drawing the moving objects.
+
+<!-- tutorial-edit: {"file":"src/main.c","op":"diff-region","function":"draw_game","context":3} -->
+**`src\main.c` — in `draw_game`, apply these changes:**
+
+```c
+    for (i = 0; i < 3; ++i)
+    {
+        oamSetXY((i + 1) * 4, game.paddle_x + i * 16, PADDLE_Y);
+    }
+    draw_bricks(); // [!code ++]
+}
+```
+
+Calling `draw_bricks` keeps visibility in step with the latest collisions.
+
+**Goal:** Initialize the brick cache to match the initially hidden sprite table.
+
+<!-- tutorial-edit: {"file":"src/main.c","op":"diff-region","function":"init_video","context":3} -->
+**`src\main.c` — in `init_video`, apply these changes:**
+
+```c
+    bgSetDisable(1);
+    bgSetDisable(2);
+    oamClear(0, 0);
+    for (i = 0; i < BRICK_COUNT; ++i) // [!code ++]
+    { // [!code ++]
+        shown_alive[i] = 0; // [!code ++]
+    } // [!code ++]
+ // [!code ++]
+    oamSet(0, game.ball_x, game.ball_y, 3, 0, 0, 12, 0);
+    oamSetEx(0, OBJ_SMALL, OBJ_SHOW);
+    for (i = 0; i < 3; ++i)
 ```
 
 Brick rows start at tiles 0, 2, 4, 6, and 8. A 16-by-16 sprite at tile 0 uses
@@ -1033,100 +1323,186 @@ make
 and rebound the ball; misses preserve the damage. Score is being accumulated,
 but is not displayed yet. Clearing the wall does not end play yet either.
 
-<img width="770" height="729" alt="image" src="https://github.com/user-attachments/assets/541d0559-2166-438c-bbf5-9db34542bdb3" />
+![Part 1 after section 6: destructible bricks](screenshots/part1-section6-bricks.png)
 
 
 ---
 
 ## 7. Add lives, winning, and restarting
 
-Add the terminal states and life count in `src\game.h`:
+---
 
-```diff
---- a/src/game.h
-+++ b/src/game.h
-@@
- enum GameState {
-     STATE_READY,
--    STATE_PLAYING
-+    STATE_PLAYING,
-+    STATE_GAME_OVER,
-+    STATE_WON
- };
-@@
-     int vy;
-     unsigned int score;
-+    int lives;
-     int bricks_left;
+### Open `src\game.h`
+
+Add the game-over and win states and life count in `src\game.h`:
+
+**Goal:** Represent game over and victory as states that stop normal play.
+
+<!-- tutorial-edit: {"file":"src/game.h","op":"diff-region","context":3} -->
+**`src\game.h` — in the file, apply these changes:**
+
+```c
+enum GameState
+{
+    STATE_READY,
+    STATE_PLAYING // [!code --]
+    STATE_PLAYING, // [!code ++]
+    STATE_GAME_OVER, // [!code ++]
+    STATE_WON // [!code ++]
+};
+
+typedef struct Game
 ```
+
+The enum now includes game-over and win states alongside ready and playing.
+
+**Goal:** Store the number of remaining lives across individual misses.
+
+<!-- tutorial-edit: {"file":"src/game.h","op":"diff-region","context":3} -->
+**`src\game.h` — in the file, apply these changes:**
+
+```c
+    int vx;
+    int vy;
+    unsigned int score;
+    int lives; // [!code ++]
+    int bricks_left;
+    int state;
+    unsigned char bricks[BRICK_COUNT];
+```
+
+`lives` persists when a new ball is attached; only a new game resets it.
+
+---
+
+### Open `src\game.c`
 
 In `src\game.c`, initialize lives, detect the last brick, and add `lose_life`
 **between `move_ball_y` and `game_tick`**. Finally replace the temporary
 offscreen reset and add state checks inside the substep loop:
 
-```diff
---- a/src/game.c
-+++ b/src/game.c
-@@
-     game->paddle_x = (FIELD_LEFT + FIELD_RIGHT - PADDLE_WIDTH) / 2;
-     game->score = 0;
-+    game->lives = 3;
-     game->bricks_left = BRICK_COUNT;
-@@
-                 game->bricks[index] = 0;
-                 game->score += 10;
-                 --game->bricks_left;
-+                if (game->bricks_left == 0)
-+                    game->state = STATE_WON;
-                 return 1;
-@@
-         game->ball_y = next_y;
-     }
- }
+**Goal:** Give each new game three lives.
 
-+static void lose_life(Game *game)
-+{
-+    --game->lives;
-+    if (game->lives == 0) {
-+        game->state = STATE_GAME_OVER;
-+    } else {
-+        game->state = STATE_READY;
-+        attach_ball(game);
-+    }
-+}
-+
- void game_tick(Game *game, int movement, int action_pressed)
- {
-     int step;
+<!-- tutorial-edit: {"file":"src/game.c","op":"diff-region","function":"game_reset","context":3} -->
+**`src\game.c` — in `game_reset`, apply these changes:**
 
-+    if (game->state == STATE_GAME_OVER || game->state == STATE_WON) {
-+        if (action_pressed)
-+            game_reset(game);
-+        return;
-+    }
-+
-     game->paddle_x += movement * PADDLE_SPEED;
-@@
-         return;
-     }
+```c
 
-+    /* Check each pixel, rather than jumping across a thin brick. */
-     for (step = 0; step < BALL_SUBSTEPS; ++step) {
-         if (step < magnitude(game->vx))
-             move_ball_x(game);
-+        if (game->state != STATE_PLAYING)
-+            return;
-         if (step < magnitude(game->vy))
-             move_ball_y(game);
-+        if (game->state != STATE_PLAYING)
-+            return;
-         if (game->ball_y >= FIELD_BOTTOM) {
--            game->state = STATE_READY;
--            attach_ball(game);
-+            lose_life(game);
-             return;
-         }
-     }
+    game->paddle_x = (FIELD_LEFT + FIELD_RIGHT - PADDLE_WIDTH) / 2;
+    game->score = 0;
+    game->lives = 3; // [!code ++]
+    game->bricks_left = BRICK_COUNT;
+    game->state = STATE_READY;
+    for (i = 0; i < BRICK_COUNT; ++i)
+```
+
+Resetting restores lives along with score and bricks.
+
+**Goal:** End play as soon as the last brick is destroyed.
+
+<!-- tutorial-edit: {"file":"src/game.c","op":"diff-region","function":"hit_brick","context":3} -->
+**`src\game.c` — in `hit_brick`, apply these changes:**
+
+```c
+                game->bricks[index] = 0;
+                game->score += 10;
+                --game->bricks_left;
+                if (game->bricks_left == 0) // [!code ++]
+                { // [!code ++]
+                    game->state = STATE_WON; // [!code ++]
+                } // [!code ++]
+                return 1;
+            }
+        }
+```
+
+A zero live count switches the game to `STATE_WON`.
+
+**Goal:** Charge one life per miss and either reattach the ball or end the game.
+
+<!-- tutorial-edit: {"file":"src/game.c","op":"add-function","name":"lose_life","before":"game_tick"} -->
+**`src\game.c` — add this complete `lose_life` function immediately before `game_tick`:**
+
+```c
+static void lose_life(Game *game) // [!code ++]
+{ // [!code ++]
+    --game->lives; // [!code ++]
+    if (game->lives == 0) // [!code ++]
+    { // [!code ++]
+        game->state = STATE_GAME_OVER; // [!code ++]
+    } // [!code ++]
+    else // [!code ++]
+    { // [!code ++]
+        game->state = STATE_READY; // [!code ++]
+        attach_ball(game); // [!code ++]
+    } // [!code ++]
+} // [!code ++]
+```
+
+Only a nonfinal miss attaches another ball; both paths preserve score and bricks.
+
+**Goal:** Keep the game-over or win screen visible until a new B or Start press restarts the game.
+
+<!-- tutorial-edit: {"file":"src/game.c","op":"diff-region","function":"game_tick","context":3} -->
+**`src\game.c` — in `game_tick`, apply these changes:**
+
+```c
+void game_tick(Game *game, int movement, int action_pressed)
+{
+    int step;
+ // [!code ++]
+    if (game->state == STATE_GAME_OVER || game->state == STATE_WON) // [!code ++]
+    { // [!code ++]
+        if (action_pressed) // [!code ++]
+        { // [!code ++]
+            game_reset(game); // [!code ++]
+        } // [!code ++]
+        return; // [!code ++]
+    } // [!code ++]
+
+    game->paddle_x += movement * PADDLE_SPEED;
+    if (game->paddle_x < FIELD_LEFT)
+```
+
+Returning immediately prevents paddle movement and keeps the restart press
+from launching the newly attached ball.
+
+**Goal:** Stop substeps on victory and deduct a life when the ball falls offscreen.
+
+<!-- tutorial-edit: {"file":"src/game.c","op":"diff-region","function":"game_tick","context":3} -->
+**`src\game.c` — in `game_tick`, apply these changes:**
+
+```c
+        return;
+    }
+
+    /* Check each pixel, rather than jumping across a thin brick. */ // [!code ++]
+    for (step = 0; step < BALL_SUBSTEPS; ++step)
+    {
+        if (step < magnitude(game->vx))
+        {
+            move_ball_x(game);
+        }
+        if (game->state != STATE_PLAYING) // [!code ++]
+        { // [!code ++]
+            return; // [!code ++]
+        } // [!code ++]
+        if (step < magnitude(game->vy))
+        {
+            move_ball_y(game);
+        }
+        if (game->state != STATE_PLAYING) // [!code ++]
+        { // [!code ++]
+            return; // [!code ++]
+        } // [!code ++]
+        if (game->ball_y >= FIELD_BOTTOM)
+        {
+            lose_life(game); // [!code ++]
+            game->state = STATE_READY; // [!code --]
+            attach_ball(game); // [!code --]
+            return;
+        }
+    }
 ```
 
 Those early returns matter: once the last brick is destroyed, remaining
@@ -1153,6 +1529,8 @@ paddle movement stops. Release and press B/Start: all bricks return and the
 ball reattaches. Release and press again to launch. There are no status messages
 yet; we will make these states visible next.
 
+![Part 1 after section 7: lives and restarting](screenshots/part1-section7-lives.png)
+
 ---
 
 ## 8. Draw the score, lives, and prompts
@@ -1160,78 +1538,116 @@ yet; we will make these states visible next.
 Text should update when values change, not on every pixel movement. The maximum
 score is 50 times 10, or 500, so a three-digit string is enough.
 
+---
+
+### Open `src\main.c`
+
 In `src\main.c`, add the text buffers and caches next to the brick cache:
 
-```diff
---- a/src/main.c
-+++ b/src/main.c
-@@
- static unsigned char shown_alive[BRICK_COUNT];
-+static char score_text[] = "000";
-+static char lives_text[] = "3";
- static int shown_bricks = -1;
-+static int shown_score = -1;
-+static int shown_lives = -1;
-+static int shown_state = -1;
+**Goal:** Hold printable score and life digits and track when they need redrawing.
 
- static void draw_bricks(void)
+<!-- tutorial-edit: {"file":"src/main.c","op":"diff-region","scope_before":"draw_bricks","context":3} -->
+**`src\main.c` — in file-scope declarations before `draw_bricks`, apply these changes:**
+
+```c
+Game game;
+
+static unsigned char shown_alive[BRICK_COUNT];
+static char score_text[] = "000"; // [!code ++]
+static char lives_text[] = "3"; // [!code ++]
+static int shown_bricks = -1;
+static int shown_score = -1; // [!code ++]
+static int shown_lives = -1; // [!code ++]
+static int shown_state = -1; // [!code ++]
+
 ```
+
+The buffers include their terminating zero byte; -1 cache values force the
+first HUD update.
 
 Now insert `draw_text` **between `draw_bricks` and `draw_game`**, call it at
 the end of `draw_game`, and add the HUD labels above the border:
 
-```diff
---- a/src/main.c
-+++ b/src/main.c
-@@
-     shown_bricks = game.bricks_left;
- }
+**Goal:** Display changed score and lives and choose prompts from the game state.
 
-+static void draw_text(void)
-+{
-+    if (shown_score != game.score) {
-+        score_text[0] = '0' + game.score / 100;
-+        score_text[1] = '0' + (game.score / 10) % 10;
-+        score_text[2] = '0' + game.score % 10;
-+        consoleDrawText(8, 1, score_text);
-+        shown_score = game.score;
-+    }
-+    if (shown_lives != game.lives) {
-+        lives_text[0] = '0' + game.lives;
-+        consoleDrawText(20, 1, lives_text);
-+        shown_lives = game.lives;
-+    }
-+
-+    if (shown_state == game.state)
-+        return;
-+
-+    consoleDrawText(3, 18, "                          ");
-+    consoleDrawText(3, 20, "                          ");
-+    if (game.state == STATE_READY) {
-+        consoleDrawText(7, 18, "B / START TO LAUNCH");
-+        consoleDrawText(6, 20, "LEFT / RIGHT TO MOVE");
-+    } else if (game.state == STATE_GAME_OVER) {
-+        consoleDrawText(11, 18, "GAME OVER");
-+        consoleDrawText(7, 20, "B / START: NEW GAME");
-+    } else if (game.state == STATE_WON) {
-+        consoleDrawText(12, 18, "YOU WIN!");
-+        consoleDrawText(7, 20, "B / START: NEW GAME");
-+    }
-+    shown_state = game.state;
-+}
-+
- static void draw_game(void)
-@@
-         oamSetXY((i + 1) * 4, game.paddle_x + i * 16, PADDLE_Y);
-     draw_bricks();
-+    draw_text();
- }
-@@
-         oamSetEx((i + 1) * 4, OBJ_LARGE, OBJ_SHOW);
-     }
+<!-- tutorial-edit: {"file":"src/main.c","op":"add-function","name":"draw_text","before":"draw_game"} -->
+**`src\main.c` — add this complete `draw_text` function immediately before `draw_game`:**
 
-+    consoleDrawText(2, 1, "SCORE       LIVES");
-     consoleDrawText(1, 3, "##############################");
+```c
+static void draw_text(void) // [!code ++]
+{ // [!code ++]
+    if (shown_score != game.score) // [!code ++]
+    { // [!code ++]
+        score_text[0] = '0' + game.score / 100; // [!code ++]
+        score_text[1] = '0' + (game.score / 10) % 10; // [!code ++]
+        score_text[2] = '0' + game.score % 10; // [!code ++]
+        consoleDrawText(8, 1, score_text); // [!code ++]
+        shown_score = game.score; // [!code ++]
+    } // [!code ++]
+    if (shown_lives != game.lives) // [!code ++]
+    { // [!code ++]
+        lives_text[0] = '0' + game.lives; // [!code ++]
+        consoleDrawText(20, 1, lives_text); // [!code ++]
+        shown_lives = game.lives; // [!code ++]
+    } // [!code ++]
+ // [!code ++]
+    if (shown_state == game.state) // [!code ++]
+    { // [!code ++]
+        return; // [!code ++]
+    } // [!code ++]
+ // [!code ++]
+    consoleDrawText(3, 18, "                          "); // [!code ++]
+    consoleDrawText(3, 20, "                          "); // [!code ++]
+    if (game.state == STATE_READY) // [!code ++]
+    { // [!code ++]
+        consoleDrawText(7, 18, "B / START TO LAUNCH"); // [!code ++]
+        consoleDrawText(6, 20, "LEFT / RIGHT TO MOVE"); // [!code ++]
+    } // [!code ++]
+    else if (game.state == STATE_GAME_OVER) // [!code ++]
+    { // [!code ++]
+        consoleDrawText(11, 18, "GAME OVER"); // [!code ++]
+        consoleDrawText(7, 20, "B / START: NEW GAME"); // [!code ++]
+    } // [!code ++]
+    else if (game.state == STATE_WON) // [!code ++]
+    { // [!code ++]
+        consoleDrawText(12, 18, "YOU WIN!"); // [!code ++]
+        consoleDrawText(7, 20, "B / START: NEW GAME"); // [!code ++]
+    } // [!code ++]
+    shown_state = game.state; // [!code ++]
+} // [!code ++]
+```
+
+The renderer writes decimal digits directly and clears old messages with spaces
+before selecting the new state's prompts.
+
+**Goal:** Keep the HUD synchronized with the latest gameplay tick.
+
+<!-- tutorial-edit: {"file":"src/main.c","op":"diff-region","function":"draw_game","context":3} -->
+**`src\main.c` — in `draw_game`, apply these changes:**
+
+```c
+        oamSetXY((i + 1) * 4, game.paddle_x + i * 16, PADDLE_Y);
+    }
+    draw_bricks();
+    draw_text(); // [!code ++]
+}
+```
+
+Calling `draw_text` every frame avoids unnecessary transfers when its cache matches.
+
+**Goal:** Label the score and lives above the playfield.
+
+<!-- tutorial-edit: {"file":"src/main.c","op":"diff-region","function":"init_video","context":3} -->
+**`src\main.c` — in `init_video`, apply these changes:**
+
+```c
+        oamSetEx((i + 1) * 4, OBJ_LARGE, OBJ_SHOW);
+    }
+
+    consoleDrawText(2, 1, "SCORE       LIVES"); // [!code ++]
+    consoleDrawText(1, 3, "##############################");
+    for (row = 4; row < 28; ++row)
+    {
 ```
 
 The string initializers already include the terminating zero byte. Writing
@@ -1250,63 +1666,10 @@ make
 prompts. Launching clears the prompts. Hits add ten points; misses decrease
 lives. Game over displays a restart prompt.
 
-![The game-over screen you have now added](screenshots/game-over.png)
+![Part 1 after section 8: score, lives, and prompts](screenshots/part1-section8-hud.png)
 
----
-
-## 9. Test the complete game
-
-You now have this project in **your SDK installation**, built incrementally:
-
-```text
-pvsneslib\
-    devkitsnes\
-    pvsneslib\
-    snes-examples\
-        breakout\
-            Makefile
-            sprites.png
-            THIRD_PARTY_NOTICES.txt
-            src\
-                main.c
-                game.h
-                game.c
-                data.asm
-```
-
-Generated graphics, header, object files, and ROM will also be present. For a
-clean rebuild from your `breakout` directory:
-
-```sh
-make clean
-make
-```
-
-Reopen the generated ROM, or reload it in the emulator. Test in this order:
-
-1. Before launching, move to both walls: paddle clamps; ball stays centered on
-   the paddle.
-2. Press B/Start: the ball launches; holding it does not repeatedly launch.
-3. Watch left, right, and top wall rebounds.
-4. Hit a brick: it disappears, adds ten points, and cannot score again.
-5. Catch the ball on each paddle third: verify the outgoing direction.
-6. Miss: exactly one life is lost; previous score and brick damage remain.
-7. Lose the last life: movement stops and `GAME OVER` appears.
-8. Restart: score `000`, lives `3`, all fifty bricks, and a waiting ball.
-9. Clear the wall: score `500`, `YOU WIN!`, and no further movement.
-10. Restart after winning, then use a separate press to launch.
-
-Silence is expected. There is no pause button in this version.
-
-Only **now**, if you want to compare your work, open the finished reference
-[game.h](src/game.h), [game.c](src/game.c), [main.c](src/main.c), and
-[data.asm](src/data.asm). Your learner Makefile intentionally has a different
-SDK default from the repository's [reference Makefile](Makefile).
-
-Emulator testing is not proof of correct behavior on a physical SNES. Test
-accurate emulators and real hardware when available before publishing a game.
-
-## Troubleshooting
+<details class="troubleshooting">
+<summary><h2 id="troubleshooting">Troubleshooting</h2></summary>
 
 | Symptom | Check |
 |---|---|
@@ -1332,81 +1695,15 @@ accurate emulators and real hardware when available before publishing a game.
 If you change the sheet dimensions or palette size, change the upload lengths
 in your `init_video` too. Do not upload 1,024 bytes from a smaller asset.
 
-## Running the gameplay tests
+</details>
 
-After step 7, the rules can be tested without SNES graphics. Copy the optional
-[test_game.c](tests/test_game.c) from your copy of this repository into a new
-`tests` directory in your learner project (not `src`, where the ROM build would
-discover it). Run these commands from your learner project's root. This part is
-optional and does not change your ROM.
-
-On Linux/macOS with a native C compiler:
-
-```sh
-mkdir -p build
-cc -std=c89 -pedantic -Wall -Wextra -Werror -Isrc \
-  tests/test_game.c src/game.c -o build/test_game
-./build/test_game
-```
-
-On Windows you need a native C compiler, which neither the PVSnesLib toolchain
-nor a default MSYS2 install provides. Pick one of two options.
-
-**Option A: GCC from MSYS2** (the smaller download). In an MSYS2 UCRT64
-terminal, install it once:
-
-```sh
-pacman -S mingw-w64-ucrt-x86_64-gcc
-```
-
-Then, in the same terminal, change to your learner project and run the
-Linux/macOS commands above unchanged.
-
-**Option B: Microsoft's compiler.** Install the **Build Tools for Visual
-Studio** (or Visual Studio with the "Desktop development with C++" workload).
-Then open an **x64 Native Tools Command Prompt for Visual Studio**, change to
-your learner project, and run:
-
-```bat
-if not exist build mkdir build
-cl /nologo /W4 /WX /Isrc /Fobuild\ /Febuild\test_game.exe tests\test_game.c src\game.c
-build\test_game.exe
-```
-
-Expected output:
-
-```text
-PASS: 8 gameplay test groups
-```
-
-Microsoft's compiler also prints the names of the files it compiles and
-`Generating Code...` before that line.
-
-The tests cover reset/launch, paddle limits, wall/brick collisions, gaps and
-corners, rebound zones, lives, scoring, winning, and restarting. They do not
-replace the emulator checkpoints for input, graphics, or timing.
-
-The repository's [GitHub Actions workflow](.github/workflows/test.yml) runs
-these tests against the finished reference on pushes and pull requests; it
-does not build a ROM.
-
-## Extend one thing at a time
+## Continue the series
 
 Once all checkpoints pass, continue with [Part 2](README-part2.md), which adds
 background layers, bricks stored in the tile map, animated dynamic sprites,
 music, and sound effects. After that, try multiple level arrays, a paused
 state, or PAL timing compensation. Make one change, rebuild, and repeat
 relevant tests.
-
-The optional [make_sprites.py](tools/make_sprites.py) regenerates the original
-sheet using Python's standard library; it is not needed for a normal build.
-
-## Licensing
-
-[THIRD_PARTY_NOTICES.txt](THIRD_PARTY_NOTICES.txt) preserves the PVSnesLib
-notice for the library and built-in font linked into the ROM. It is not a
-license for the original tutorial, source, or artwork. No project-wide license
-has been selected for those files.
 
 ## Official references
 
@@ -1441,3 +1738,6 @@ describes the latest release, which may differ from 4.6.0.
 [interrupts]: https://github.com/alekmaul/pvsneslib/blob/4.6.0/pvsneslib/include/snes/interrupt.h
 [gfx]: https://github.com/alekmaul/pvsneslib/blob/4.6.0/tools/gfx4snes/readme.md
 [sprite-example]: https://github.com/alekmaul/pvsneslib/tree/4.6.0/snes-examples/graphics/Sprites/SimpleSprite
+
+**Next:** [Part 2 — backgrounds, dynamic sprites, and sound](README-part2.md)
+· [Series site](https://mhughson.github.io/mbh-pvsneslib-breakout-tutorial/)

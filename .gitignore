@@ -1,24 +1,30 @@
-# SNES ROM and build intermediates
-/breakout.sfc
-/breakout.sym
-/breakout.symfull
-/breakout.log
-/hdr.asm
-/linkfile
+# Downloadable ROMs are retained; intermediate build outputs are not.
+*.sym
+*.symfull
+*.log
+hdr.asm
+linkfile
 *.obj
 *.ps
 *.dbg
-/src/game.asm
-/src/main.asm
+**/src/game.asm
+**/src/main.asm
 
-# Converted graphics (regenerated from sprites.png)
-/sprites.pic
-/sprites.pal
-/sprites.inc
-/sprites_data.as
+# Converted graphics and audio (regenerated from source assets)
+*.pic
+*.pal
+*.map
+*.inc
+*_data.as
+**/res/
 
 # Native test binaries and Python caches
 /build/
+node_modules/
+/site/content/
+/site/public/
+/site/.vitepress/cache/
+/site/.vitepress/rom-versions.json
 __pycache__/
 *.py[cod]
 

@@ -4,8 +4,11 @@ This is **Part 4** of the build-it-yourself Breakout tutorial. Start with the
 game you finished in [Part 3](README-part3.md), write each edit yourself, build,
 and try the checkpoint before moving on.
 
-**Want to see where you're going first?** Download the finished ROM,
-[part4/breakout.sfc](part4/breakout.sfc), and open it in your emulator.
+<div class="rom-download-panel" data-part="4">
+  <p class="rom-download-heading"><strong>Try the completed Part 4 game!</strong></p>
+  <a class="rom-download-button" href="part4/breakout.sfc" download>Download the Part 4 ROM</a>
+</div>
+
 Left/Right moves, B or Start launches, and Start pauses during play.
 The SNES Mouse from Part 3 still works.
 
@@ -33,45 +36,9 @@ Keep all five Part 3 graphics files (`paddle.png`, `ball.png`, `playfield.png`,
 one original image: [capsule.png](part4/capsule.png). You do not need a new
 SDK, library, editor, or Python to follow the tutorial.
 
-## Tutorial versus finished reference
-
-**Do not copy this repository's `part4\src` folder into your project.**
-It is the finished reference for comparison after completing the steps.
-Your learner Makefile keeps the SDK default from Part 1.
-The [reference Makefile](part4/Makefile) instead looks in `vendor/pvsneslib`,
-like the earlier reference projects.
-
 The gameplay code still knows nothing about the SNES. Positions, collisions,
 levels, and power-up timers live in `src\game.c`; backgrounds, sprites, input,
 sound, and saving stay in `src\main.c`.
-
-## How to follow the code edits
-
-The diff blocks work exactly as in earlier parts. Keep unmarked context,
-remove `-` lines, and add `+` lines. Do not type the markers, filenames, or
-`@@` lines. Apply the blocks in order. Separate `@@` hunks are separate edits
-in the named file; each block includes the surrounding code.
-
-The function name or placement note after the closing `@@` tells you **where
-to edit**. Find that named location and match the surrounding code. The numeric
-ranges are standard diff metadata for each block's before/after versions, not
-editor line-number instructions; earlier edits, comments, and spacing can move
-your lines.
-
-When a step provides a complete function in a plain C block, replace the
-**entire named function**, from its signature through its final closing brace.
-Keep the other functions in that file unchanged.
-
-After each numbered section, build from your project folder in the
-**MSYS2 UCRT64 terminal**:
-
-```sh
-make
-```
-
-Reload `breakout.sfc` in your emulator. Screenshots show actual emulator output
-from that section's build, not a mock-up. Scrolling and fractional movement
-need to be watched in motion; a still image only shows one instant.
 
 ## Contents
 
@@ -82,12 +49,9 @@ need to be watched in motion; a still image only shows one instant.
 5. [Give the ball finer rebound angles](#5-give-the-ball-finer-rebound-angles)
 6. [Drop collectible capsules](#6-drop-collectible-capsules)
 7. [Grow a wide paddle](#7-grow-a-wide-paddle)
-8. [Test the finished game](#8-test-the-finished-game)
 
-See also [troubleshooting](#troubleshooting),
-[gameplay tests](#running-the-gameplay-tests),
-[reference validation](#validating-the-tutorial-checkpoints),
-[licensing](#licensing), and [official references](#official-references).
+See also [troubleshooting](#troubleshooting) and
+[official references](#official-references).
 
 ---
 
@@ -113,54 +77,97 @@ bits as the pixel offset: `0, 0, 0, 1, 1, 1, 1, 2, ...`.
 Masking to 1023 keeps it bounded; after division by four the visible offset is
 0 through 255. This is a simple introduction to storing subpixel progress.
 
+---
+
+### Open `src\main.c`
+
 Reset the counter when entering gameplay so the existing backdrop stays still
 there. Write the scroll registers immediately after `WaitForVBlank`, with the
 other PPU updates:
 
-```diff
---- a/src/main.c
-+++ b/src/main.c
-@@ -97,6 +97,7 @@ File-scope variables: after shown_mouse
- static int mouse_port;
- static int mouse_dx;
- static int shown_mouse;
-+static int backdrop_scroll;
- 
- static void prepare_bricks(void)
- {
-@@ -385,6 +386,7 @@ static void show_title(void)
- static void show_title(void)
- {
-     screen = SCREEN_TITLE;
-+    backdrop_scroll = 0;
-     clear_text();
-     bgSetGfxPtr(1, 0x2000);
-     bgSetMapPtr(1, 0x7400, SC_32x32);
-@@ -399,6 +401,7 @@ static void show_game(void)
- static void show_game(void)
- {
-     screen = SCREEN_GAME;
-+    backdrop_scroll = 0;
-     clear_text();
-     bgSetGfxPtr(1, 0x4000);
-     bgSetMapPtr(1, PLAYFIELD_MAP, SC_32x32);
-@@ -492,6 +495,7 @@ static void update_title(u16 pressed)
- {
-     int connected;
- 
-+    backdrop_scroll = (backdrop_scroll + 1) & 1023;
-     connected = mouse_port >= 0;
-     if (shown_mouse != connected) {
-         if (connected)
-@@ -575,6 +579,7 @@ int main(void)
-         spcProcess();
-         oamInitDynamicSpriteEndFrame();
-         WaitForVBlank();
-+        bgSetScroll(2, backdrop_scroll >> 2, 0);
-         setBrightness(brightness);
-         update_mosaic();
-         oamVramQueueUpdate();
+**Goal:** Retain fractional progress for a slowly scrolling title backdrop.
+
+<!-- tutorial-edit: {"file":"src/main.c","op":"diff-region","scope_before":"prepare_bricks","context":3} -->
+**`src\main.c` — in file-scope declarations before `prepare_bricks`, apply these changes:**
+
+```c
+static int mouse_port;
+static int mouse_dx;
+static int shown_mouse;
+static int backdrop_scroll; // [!code ++]
+
 ```
+
+The counter stores quarter-pixel progress rather than moving one pixel every frame.
+
+**Goal:** Begin each visit to the title at the backdrop's original position.
+
+<!-- tutorial-edit: {"file":"src/main.c","op":"diff-region","function":"show_title","context":3} -->
+**`src\main.c` — in `show_title`, apply these changes:**
+
+```c
+static void show_title(void)
+{
+    screen = SCREEN_TITLE;
+    backdrop_scroll = 0; // [!code ++]
+    clear_text();
+    bgSetGfxPtr(1, 0x2000);
+    bgSetMapPtr(1, 0x7400, SC_32x32);
+```
+
+Resetting the counter prevents a previous title visit from changing the starting offset.
+
+**Goal:** Keep the gameplay backdrop stationary at its original position.
+
+<!-- tutorial-edit: {"file":"src/main.c","op":"diff-region","function":"show_game","context":3} -->
+**`src\main.c` — in `show_game`, apply these changes:**
+
+```c
+static void show_game(void)
+{
+    screen = SCREEN_GAME;
+    backdrop_scroll = 0; // [!code ++]
+    clear_text();
+    bgSetGfxPtr(1, 0x4000);
+    bgSetMapPtr(1, PLAYFIELD_MAP, SC_32x32);
+```
+
+The gameplay screen resets the same counter and does not advance it.
+
+**Goal:** Advance and wrap the scrolling counter while the title is active.
+
+<!-- tutorial-edit: {"file":"src/main.c","op":"diff-region","function":"update_title","context":3} -->
+**`src\main.c` — in `update_title`, apply these changes:**
+
+```c
+{
+    int connected;
+
+    backdrop_scroll = (backdrop_scroll + 1) & 1023; // [!code ++]
+    connected = mouse_port >= 0;
+    if (shown_mouse != connected)
+    {
+```
+
+Masking to 1023 bounds quarter-pixel progress to one 256-pixel map width.
+
+**Goal:** Apply the backdrop's horizontal scroll during VBlank.
+
+<!-- tutorial-edit: {"file":"src/main.c","op":"diff-region","function":"main","context":3} -->
+**`src\main.c` — in `main`, apply these changes:**
+
+```c
+        spcProcess();
+        oamInitDynamicSpriteEndFrame();
+        WaitForVBlank();
+        bgSetScroll(2, backdrop_scroll >> 2, 0); // [!code ++]
+        setBrightness(brightness);
+        update_mosaic();
+        oamVramQueueUpdate();
+```
+
+Shifting by two converts the counter to whole pixels; background index 2 leaves
+the logo and text untouched.
 
 **Checkpoint:** Build and run. Leave the title open for several seconds.
 The stars drift while the logo, high score, and prompts stay still. Start a
@@ -196,163 +203,276 @@ paddle, ball, and bricks without touching score or lives. `game_next_level`
 loads the next layout. Both the D-pad and mouse should ignore a completed
 level while its message is showing.
 
+---
+
+### Open `src\game.h`
+
 Make these edits to `src\game.h` and `src\game.c`:
 
-```diff
---- a/src/game.h
-+++ b/src/game.h
-@@ -24,12 +24,14 @@ File scope: HIT_* constants and enum GameState
- #define HIT_WALL 1
- #define HIT_PADDLE 2
- #define HIT_BRICK 4
-+#define LEVEL_COUNT 3
- 
- enum GameState {
-     STATE_READY,
-     STATE_PLAYING,
-     STATE_GAME_OVER,
--    STATE_WON
-+    STATE_WON,
-+    STATE_LEVEL_CLEAR
- };
- 
- typedef struct Game {
-@@ -43,10 +45,12 @@ struct Game and function declarations below it
-     int bricks_left;
-     int state;
-     int hits;
-+    int level;
-     unsigned char bricks[BRICK_COUNT];
- } Game;
- 
- void game_reset(Game *game);
-+void game_next_level(Game *game);
- void game_move_paddle(Game *game, int dx);
- void game_tick(Game *game, int movement, int action_pressed);
- 
+**Goal:** Define a campaign containing three layouts.
+
+<!-- tutorial-edit: {"file":"src/game.h","op":"diff-region","context":3} -->
+**`src\game.h` — in the file, apply these changes:**
+
+```c
+#define BRICK_WIDTH  16
+#define BRICK_HEIGHT 8
+
+#define HIT_WALL   1 // [!code --]
+#define HIT_WALL    1 // [!code ++]
+#define HIT_PADDLE 2 // [!code --]
+#define HIT_PADDLE  2 // [!code ++]
+#define HIT_BRICK  4 // [!code --]
+#define HIT_BRICK   4 // [!code ++]
+#define LEVEL_COUNT 3 // [!code ++]
+
+enum GameState
+{
 ```
 
-```diff
---- a/src/game.c
-+++ b/src/game.c
-@@ -1,4 +1,28 @@ File scope: add levels after #include "game.h"
- #include "game.h"
-+
-+static const char levels[LEVEL_COUNT][BRICK_ROWS][BRICK_COLS + 1] = {
-+    {
-+        "11111111111111",
-+        "11001100110011",
-+        "11111111111111",
-+        "00110011001100",
-+        "11111111111111"
-+    },
-+    {
-+        "00000111100000",
-+        "00011111111000",
-+        "01111111111110",
-+        "00011111111000",
-+        "00000111100000"
-+    },
-+    {
-+        "11111111111111",
-+        "10010011001001",
-+        "11111111111111",
-+        "00110100101100",
-+        "11111111111111"
-+    }
-+};
- 
- static int magnitude(int value)
- {
-@@ -15,19 +39,42 @@ After attach_ball: replace game_reset; add load_level and game_next_level
-     game->vy = -3;
- }
- 
-+static void load_level(Game *game)
-+{
-+    int row;
-+    int col;
-+    int i;
-+
-+    game->paddle_x = (FIELD_LEFT + FIELD_RIGHT - PADDLE_WIDTH) / 2;
-+    game->bricks_left = 0;
-+    game->state = STATE_READY;
-+    game->hits = 0;
-+    i = 0;
-+    for (row = 0; row < BRICK_ROWS; ++row) {
-+        for (col = 0; col < BRICK_COLS; ++col) {
-+            game->bricks[i] = levels[game->level][row][col] - '0';
-+            if (game->bricks[i])
-+                ++game->bricks_left;
-+            ++i;
-+        }
-+    }
-+    attach_ball(game);
-+}
-+
- void game_reset(Game *game)
- {
--    int i;
--
--    game->paddle_x = (FIELD_LEFT + FIELD_RIGHT - PADDLE_WIDTH) / 2;
-     game->score = 0;
-     game->lives = 3;
--    game->bricks_left = BRICK_COUNT;
--    game->state = STATE_READY;
--    game->hits = 0;
--    for (i = 0; i < BRICK_COUNT; ++i)
--        game->bricks[i] = 1;
--    attach_ball(game);
-+    game->level = 0;
-+    load_level(game);
-+}
-+
-+void game_next_level(Game *game)
-+{
-+    if (game->state == STATE_LEVEL_CLEAR && game->level + 1 < LEVEL_COUNT) {
-+        ++game->level;
-+        load_level(game);
-+    }
- }
- 
- static int hit_brick(Game *game, int x, int y)
-@@ -65,8 +112,12 @@ static int hit_brick(Game *game, int x, int y)
-                 game->bricks[index] = 0;
-                 game->score += 10;
-                 --game->bricks_left;
--                if (game->bricks_left == 0)
--                    game->state = STATE_WON;
-+                if (game->bricks_left == 0) {
-+                    if (game->level + 1 == LEVEL_COUNT)
-+                        game->state = STATE_WON;
-+                    else
-+                        game->state = STATE_LEVEL_CLEAR;
-+                }
-                 return 1;
-             }
-         }
-@@ -142,7 +193,7 @@ void game_move_paddle(Game *game, int dx)
- 
- void game_move_paddle(Game *game, int dx)
- {
--    if (game->state == STATE_GAME_OVER || game->state == STATE_WON)
-+    if (game->state != STATE_READY && game->state != STATE_PLAYING)
-         return;
-     game->paddle_x += dx;
-     if (game->paddle_x < FIELD_LEFT)
-@@ -156,6 +207,11 @@ void game_tick(Game *game, int movement, int action_pressed)
-     int step;
- 
-     game->hits = 0;
-+    if (game->state == STATE_LEVEL_CLEAR) {
-+        if (action_pressed)
-+            game_next_level(game);
-+        return;
-+    }
-     if (game->state == STATE_GAME_OVER || game->state == STATE_WON) {
-         if (action_pressed)
-             game_reset(game);
+`LEVEL_COUNT` bounds the layout table and identifies the final level.
+
+**Goal:** Distinguish clearing a level from winning the entire campaign.
+
+<!-- tutorial-edit: {"file":"src/game.h","op":"diff-region","context":3} -->
+**`src\game.h` — in the file, apply these changes:**
+
+```c
+    STATE_READY,
+    STATE_PLAYING,
+    STATE_GAME_OVER,
+    STATE_WON // [!code --]
+    STATE_WON, // [!code ++]
+    STATE_LEVEL_CLEAR // [!code ++]
+};
+
+typedef struct Game
 ```
+
+The new interlude state stops play while waiting for the next-level action.
+
+**Goal:** Store the current zero-based level index with the game.
+
+<!-- tutorial-edit: {"file":"src/game.h","op":"diff-region","context":3} -->
+**`src\game.h` — in the file, apply these changes:**
+
+```c
+    int bricks_left;
+    int state;
+    int hits;
+    int level; // [!code ++]
+    unsigned char bricks[BRICK_COUNT];
+} Game;
+
+```
+
+The index selects the layout; the HUD will display it plus one.
+
+**Goal:** Expose guarded progression to the next level.
+
+<!-- tutorial-edit: {"file":"src/game.h","op":"diff-region","context":3} -->
+**`src\game.h` — in the file, apply these changes:**
+
+```c
+} Game;
+
+void game_reset(Game *game);
+void game_next_level(Game *game); // [!code ++]
+void game_move_paddle(Game *game, int dx);
+void game_tick(Game *game, int movement, int action_pressed);
+
+```
+
+
+
+The new declaration lets the screen controller advance without resetting the campaign.
+
+---
+
+### Open `src\game.c`
+
+**Goal:** Describe all three brick walls as compact rows of characters.
+
+<!-- tutorial-edit: {"file":"src/game.c","op":"diff-region","scope_before":"magnitude","context":3} -->
+**`src\game.c` — in file-scope declarations before `magnitude`, apply these changes:**
+
+```c
+#include "game.h"
+ // [!code ++]
+static const char levels[LEVEL_COUNT][BRICK_ROWS][BRICK_COLS + 1] = { // [!code ++]
+    {"11111111111111", "11001100110011", "11111111111111", "00110011001100", // [!code ++]
+     "11111111111111"}, // [!code ++]
+    {"00000111100000", "00011111111000", "01111111111110", "00011111111000", // [!code ++]
+     "00000111100000"}, // [!code ++]
+    {"11111111111111", "10010011001001", "11111111111111", "00110100101100", // [!code ++]
+     "11111111111111"}}; // [!code ++]
+
+```
+
+Each fourteen-character row includes a terminating zero; `0` cells are holes.
+
+**Goal:** Load one layout while preserving campaign score and lives.
+
+<!-- tutorial-edit: {"file":"src/game.c","op":"add-function","name":"load_level","before":"game_reset"} -->
+**`src\game.c` — add this complete `load_level` function immediately before `game_reset`:**
+
+```c
+static void load_level(Game *game) // [!code ++]
+{ // [!code ++]
+    int row; // [!code ++]
+    int col; // [!code ++]
+    int i; // [!code ++]
+ // [!code ++]
+    game->paddle_x = (FIELD_LEFT + FIELD_RIGHT - PADDLE_WIDTH) / 2; // [!code ++]
+    game->bricks_left = 0; // [!code ++]
+    game->state = STATE_READY; // [!code ++]
+    game->hits = 0; // [!code ++]
+    i = 0; // [!code ++]
+    for (row = 0; row < BRICK_ROWS; ++row) // [!code ++]
+    { // [!code ++]
+        for (col = 0; col < BRICK_COLS; ++col) // [!code ++]
+        { // [!code ++]
+            game->bricks[i] = levels[game->level][row][col] - '0'; // [!code ++]
+            if (game->bricks[i]) // [!code ++]
+            { // [!code ++]
+                ++game->bricks_left; // [!code ++]
+            } // [!code ++]
+            ++i; // [!code ++]
+        } // [!code ++]
+    } // [!code ++]
+    attach_ball(game); // [!code ++]
+} // [!code ++]
+```
+
+The loader converts characters to cell values, counts occupied bricks, and
+resets the paddle, attachment, state, and hit flags.
+
+**Goal:** Remove setup now performed by the level loader.
+
+<!-- tutorial-edit: {"file":"src/game.c","op":"diff-region","function":"game_reset","context":3} -->
+**`src\game.c` — in `game_reset`, apply these changes:**
+
+```c
+void game_reset(Game *game)
+{
+    int i; // [!code --]
+ // [!code --]
+    game->paddle_x = (FIELD_LEFT + FIELD_RIGHT - PADDLE_WIDTH) / 2; // [!code --]
+    game->score = 0;
+    game->lives = 3;
+    game->bricks_left = BRICK_COUNT;
+```
+
+`game_reset` no longer needs a brick-loop index or its own paddle centering.
+
+**Goal:** Begin a new campaign on level zero using the shared loader.
+
+<!-- tutorial-edit: {"file":"src/game.c","op":"diff-region","function":"game_reset","context":3} -->
+**`src\game.c` — in `game_reset`, apply these changes:**
+
+```c
+{
+    game->score = 0;
+    game->lives = 3;
+    game->bricks_left = BRICK_COUNT; // [!code --]
+    game->state = STATE_READY; // [!code --]
+    game->hits = 0; // [!code --]
+    game->level = 0; // [!code ++]
+    load_level(game); // [!code ++]
+    for (i = 0; i < BRICK_COUNT; ++i) // [!code --]
+    { // [!code --]
+        game->bricks[i] = 1; // [!code --]
+    } // [!code --]
+    attach_ball(game); // [!code --]
+}
+```
+
+Resetting still clears score and restores lives; `load_level` supplies all per-level state.
+
+**Goal:** Advance only from a cleared level when another layout exists.
+
+<!-- tutorial-edit: {"file":"src/game.c","op":"add-function","name":"game_next_level","before":"hit_brick"} -->
+**`src\game.c` — add this complete `game_next_level` function immediately before `hit_brick`:**
+
+```c
+void game_next_level(Game *game) // [!code ++]
+{ // [!code ++]
+    if (game->state == STATE_LEVEL_CLEAR && game->level + 1 < LEVEL_COUNT) // [!code ++]
+    { // [!code ++]
+        ++game->level; // [!code ++]
+        load_level(game); // [!code ++]
+    } // [!code ++]
+} // [!code ++]
+```
+
+The guard prevents skipping during play or indexing beyond the final layout.
+
+**Goal:** Show a level-clear interlude unless the final wall has been destroyed.
+
+<!-- tutorial-edit: {"file":"src/game.c","op":"diff-region","function":"hit_brick","context":3} -->
+**`src\game.c` — in `hit_brick`, apply these changes:**
+
+```c
+                --game->bricks_left;
+                if (game->bricks_left == 0)
+                {
+                    if (game->level + 1 == LEVEL_COUNT) // [!code ++]
+                    { // [!code ++]
+                    game->state = STATE_WON; // [!code --]
+                        game->state = STATE_WON; // [!code ++]
+                    } // [!code ++]
+                    else // [!code ++]
+                    { // [!code ++]
+                        game->state = STATE_LEVEL_CLEAR; // [!code ++]
+                    } // [!code ++]
+                }
+                return 1;
+            }
+```
+
+Only the final level enters `STATE_WON`; earlier levels enter `STATE_LEVEL_CLEAR`.
+
+**Goal:** Ignore paddle input whenever the game is outside ready or playing states.
+
+<!-- tutorial-edit: {"file":"src/game.c","op":"diff-region","function":"game_move_paddle","context":3} -->
+**`src\game.c` — in `game_move_paddle`, apply these changes:**
+
+```c
+void game_move_paddle(Game *game, int dx)
+{
+    if (game->state == STATE_GAME_OVER || game->state == STATE_WON) // [!code --]
+    if (game->state != STATE_READY && game->state != STATE_PLAYING) // [!code ++]
+    {
+        return;
+    }
+```
+
+The broader guard also freezes mouse movement during the new interlude.
+
+**Goal:** Let a fresh action press load the next level without launching its ball.
+
+<!-- tutorial-edit: {"file":"src/game.c","op":"diff-region","function":"game_tick","context":3} -->
+**`src\game.c` — in `game_tick`, apply these changes:**
+
+```c
+    int step;
+
+    game->hits = 0;
+    if (game->state == STATE_LEVEL_CLEAR) // [!code ++]
+    { // [!code ++]
+        if (action_pressed) // [!code ++]
+        { // [!code ++]
+            game_next_level(game); // [!code ++]
+        } // [!code ++]
+        return; // [!code ++]
+    } // [!code ++]
+    if (game->state == STATE_GAME_OVER || game->state == STATE_WON)
+    {
+        if (action_pressed)
+```
+
+Returning immediately after progression leaves the new ball in `STATE_READY`
+until a separate launch press.
 
 ### Draw the new layout and messages
 
@@ -371,120 +491,251 @@ that shortcut. Keep comparing the individual cells, and upload only changed
 rows as before. Initialize their cached values to `255`, an impossible health
 value, so the first level also erases holes from the original full tile map.
 
+---
+
+### Open `src\main.c`
+
 Update `src\main.c`:
 
-```diff
---- a/src/main.c
-+++ b/src/main.c
-@@ -74,10 +74,11 @@ File-scope variables: score buffers and display caches
- static unsigned char row_changed[BRICK_ROWS];
- static unsigned char shown_alive[BRICK_COUNT];
- static u8 gradient_table[GRADIENT_BANDS * 5 + 1];
--static char score_text[] = "000";
-+static char score_text[] = "00000";
- static char lives_text[] = "3";
--static char high_score_text[] = "HIGH SCORE 000";
--static int shown_bricks = -1;
-+static char level_text[] = "1";
-+static char high_score_text[] = "HIGH SCORE 00000";
-+static int shown_level = -1;
- static int shown_score = -1;
- static int shown_lives = -1;
- static int shown_state = -1;
-@@ -106,9 +107,6 @@ static void prepare_bricks(void)
-     int col;
-     int tile;
- 
--    if (shown_bricks == game.bricks_left)
--        return;
--
-     index = 0;
-     for (row = 0; row < BRICK_ROWS; ++row) {
-         tile = (BRICK_TILE_Y + row) * 32 + BRICK_TILE_X;
-@@ -127,7 +125,6 @@ static void prepare_bricks(void)
-             ++index;
-         }
-     }
--    shown_bricks = game.bricks_left;
- }
- 
- static void upload_bricks(void)
-@@ -148,9 +145,11 @@ static void format_score(char *text, unsigned int score)
- 
- static void format_score(char *text, unsigned int score)
- {
--    text[0] = '0' + score / 100;
--    text[1] = '0' + (score / 10) % 10;
--    text[2] = '0' + score % 10;
-+    text[0] = '0' + score / 10000;
-+    text[1] = '0' + (score / 1000) % 10;
-+    text[2] = '0' + (score / 100) % 10;
-+    text[3] = '0' + (score / 10) % 10;
-+    text[4] = '0' + score % 10;
- }
- 
- static void draw_text(void)
-@@ -164,6 +163,11 @@ static void draw_text(void)
-         lives_text[0] = '0' + game.lives;
-         consoleDrawText(20, 1, lives_text);
-         shown_lives = game.lives;
-+    }
-+    if (shown_level != game.level) {
-+        level_text[0] = '1' + game.level;
-+        consoleDrawText(26, 1, level_text);
-+        shown_level = game.level;
-     }
- 
-     if (shown_state == game.state && shown_paused == paused)
-@@ -180,6 +184,9 @@ static void draw_text(void)
-     } else if (game.state == STATE_GAME_OVER) {
-         consoleDrawText(11, 18, "GAME OVER");
-         consoleDrawText(7, 20, "B / START: CONTINUE");
-+    } else if (game.state == STATE_LEVEL_CLEAR) {
-+        consoleDrawText(10, 18, "LEVEL CLEAR!");
-+        consoleDrawText(7, 20, "B / START: NEXT LEVEL");
-     } else if (game.state == STATE_WON) {
-         consoleDrawText(12, 18, "YOU WIN!");
-         consoleDrawText(7, 20, "B / START: CONTINUE");
-@@ -258,6 +265,8 @@ static void play_sounds(int old_state)
-             play_effect(SFX_STRINGS, 2);
-         } else if (game.state == STATE_WON) {
-             spcStop();
-+            play_effect(SFX_TADA, 4);
-+        } else if (game.state == STATE_LEVEL_CLEAR) {
-             play_effect(SFX_TADA, 4);
-         } else if (old_state == STATE_PLAYING) {
-             play_effect(SFX_STRINGS, 3);
-@@ -369,8 +378,7 @@ static void init_video(void)
-                 playfield_map[(BRICK_TILE_Y + row) * 32 + BRICK_TILE_X + col];
-     }
-     for (i = 0; i < BRICK_COUNT; ++i)
--        shown_alive[i] = 1;
--    shown_bricks = BRICK_COUNT;
-+        shown_alive[i] = 255;
- }
- 
- static void clear_text(void)
-@@ -392,7 +400,7 @@ static void show_title(void)
-     bgSetMapPtr(1, 0x7400, SC_32x32);
-     bgSetEnable(1);
-     format_score(high_score_text + 11, high_score);
--    consoleDrawText(9, 18, high_score_text);
-+    consoleDrawText(6, 18, high_score_text);
-     consoleDrawText(10, 22, "PRESS START");
-     shown_mouse = -1;
-     start_music();
-@@ -412,7 +420,8 @@ static void show_game(void)
-     shown_score = -1;
-     shown_lives = -1;
-     shown_state = -1;
--    consoleDrawText(2, 1, "SCORE       LIVES");
-+    shown_level = -1;
-+    consoleDrawText(2, 1, "SCORE       LIVES     LV");
-     draw_text();
- }
- 
+**Goal:** Allow the gameplay HUD to display campaign scores above 999.
+
+<!-- tutorial-edit: {"file":"src/main.c","op":"diff-region","scope_before":"prepare_bricks","context":3} -->
+**`src\main.c` — in file-scope declarations before `prepare_bricks`, apply these changes:**
+
+```c
+static unsigned char row_changed[BRICK_ROWS];
+static unsigned char shown_alive[BRICK_COUNT];
+static u8 gradient_table[GRADIENT_BANDS * 5 + 1];
+static char score_text[] = "000"; // [!code --]
+static char score_text[] = "00000"; // [!code ++]
+static char lives_text[] = "3";
+static char high_score_text[] = "HIGH SCORE 000";
+static int shown_bricks = -1;
 ```
+
+Five digits fit every unsigned 16-bit score without changing the score's storage type.
+
+**Goal:** Add level text, widen the title record, and retire the count-only brick cache.
+
+<!-- tutorial-edit: {"file":"src/main.c","op":"diff-region","scope_before":"prepare_bricks","context":3} -->
+**`src\main.c` — in file-scope declarations before `prepare_bricks`, apply these changes:**
+
+```c
+static u8 gradient_table[GRADIENT_BANDS * 5 + 1];
+static char score_text[] = "00000";
+static char lives_text[] = "3";
+static char level_text[] = "1"; // [!code ++]
+static char high_score_text[] = "HIGH SCORE 000"; // [!code --]
+static char high_score_text[] = "HIGH SCORE 00000"; // [!code ++]
+static int shown_bricks = -1; // [!code --]
+static int shown_level = -1; // [!code ++]
+static int shown_score = -1;
+static int shown_lives = -1;
+static int shown_state = -1;
+```
+
+`shown_level` tracks the HUD; individual cell comparisons now drive brick rendering.
+
+**Goal:** Check brick cells even when two layouts have the same occupied count.
+
+<!-- tutorial-edit: {"file":"src/main.c","op":"diff-region","function":"prepare_bricks","context":3} -->
+**`src\main.c` — in `prepare_bricks`, apply these changes:**
+
+```c
+    int row;
+    int col;
+    int tile;
+ // [!code --]
+    if (shown_bricks == game.bricks_left) // [!code --]
+    { // [!code --]
+        return; // [!code --]
+    } // [!code --]
+
+    index = 0;
+    for (row = 0; row < BRICK_ROWS; ++row)
+```
+
+Removing the count-based early return prevents old holes from surviving a layout change.
+
+**Goal:** Remove the final assignment to the obsolete brick-count cache.
+
+<!-- tutorial-edit: {"file":"src/main.c","op":"diff-region","function":"prepare_bricks","context":3} -->
+**`src\main.c` — in `prepare_bricks`, apply these changes:**
+
+```c
+    for (row = 0; row < BRICK_ROWS; ++row)
+    {
+        tile = (BRICK_TILE_Y + row) * 32 + BRICK_TILE_X;
+        for (col = 0; col < BRICK_COLS * 2; col += 2)
+        {
+            if (shown_alive[index] != game.bricks[index])
+            {
+                shown_alive[index] = game.bricks[index];
+                if (game.bricks[index])
+                {
+                    brick_map[row][col] = playfield_map[tile + col];
+                    brick_map[row][col + 1] = playfield_map[tile + col + 1];
+                }
+                else
+                {
+                    brick_map[row][col] = EMPTY_TILE;
+                    brick_map[row][col + 1] = EMPTY_TILE;
+                }
+                row_changed[row] = 1;
+            }
+            ++index;
+        }
+    }
+    shown_bricks = game.bricks_left; // [!code --]
+}
+```
+
+The per-cell cache and dirty-row flags remain responsible for detecting map changes.
+
+**Goal:** Format five score digits for both the HUD and title.
+
+<!-- tutorial-edit: {"file":"src/main.c","op":"diff-region","function":"format_score","context":3} -->
+**`src\main.c` — in `format_score`, apply these changes:**
+
+```c
+static void format_score(char *text, unsigned int score)
+{
+    text[0] = '0' + score / 100; // [!code --]
+    text[0] = '0' + score / 10000; // [!code ++]
+    text[1] = '0' + (score / 10) % 10; // [!code --]
+    text[1] = '0' + (score / 1000) % 10; // [!code ++]
+    text[2] = '0' + score % 10; // [!code --]
+    text[2] = '0' + (score / 100) % 10; // [!code ++]
+    text[3] = '0' + (score / 10) % 10; // [!code ++]
+    text[4] = '0' + score % 10; // [!code ++]
+}
+```
+
+Division and remainder select each decimal place without altering the string terminator.
+
+**Goal:** Display the current level as a one-based HUD number.
+
+<!-- tutorial-edit: {"file":"src/main.c","op":"diff-region","function":"draw_text","context":3} -->
+**`src\main.c` — in `draw_text`, apply these changes:**
+
+```c
+    if (shown_lives != game.lives)
+    {
+        lives_text[0] = '0' + game.lives;
+        consoleDrawText(20, 1, lives_text);
+        shown_lives = game.lives;
+    }
+    if (shown_level != game.level) // [!code ++]
+    { // [!code ++]
+        level_text[0] = '1' + game.level; // [!code ++]
+        consoleDrawText(26, 1, level_text); // [!code ++]
+        shown_level = game.level; // [!code ++]
+    } // [!code ++]
+
+    if (shown_state == game.state && shown_paused == paused)
+    {
+```
+
+Adding to character `'1'` converts level indices 0–2 into displayed digits 1–3.
+
+**Goal:** Explain how to continue after clearing a nonfinal level.
+
+<!-- tutorial-edit: {"file":"src/main.c","op":"diff-region","function":"draw_text","context":3} -->
+**`src\main.c` — in `draw_text`, apply these changes:**
+
+```c
+    else if (game.state == STATE_GAME_OVER)
+    {
+        consoleDrawText(11, 18, "GAME OVER");
+        consoleDrawText(7, 20, "B / START: CONTINUE");
+    }
+    else if (game.state == STATE_LEVEL_CLEAR) // [!code ++]
+    { // [!code ++]
+        consoleDrawText(10, 18, "LEVEL CLEAR!"); // [!code ++]
+        consoleDrawText(7, 20, "B / START: NEXT LEVEL"); // [!code ++]
+    } // [!code ++]
+    else if (game.state == STATE_WON)
+    {
+        consoleDrawText(12, 18, "YOU WIN!");
+```
+
+The interlude gets its own message while victory retains the existing terminal prompt.
+
+**Goal:** Celebrate a level clear without stopping the campaign music.
+
+<!-- tutorial-edit: {"file":"src/main.c","op":"diff-region","function":"play_sounds","context":3} -->
+**`src\main.c` — in `play_sounds`, apply these changes:**
+
+```c
+        else if (game.state == STATE_WON)
+        {
+            spcStop();
+            play_effect(SFX_TADA, 4);
+        }
+        else if (game.state == STATE_LEVEL_CLEAR) // [!code ++]
+        { // [!code ++]
+            play_effect(SFX_TADA, 4); // [!code ++]
+        } // [!code ++]
+        else if (old_state == STATE_PLAYING)
+        {
+            play_effect(SFX_STRINGS, 3);
+```
+
+This transition plays the tada effect without the final-win branch's `spcStop`.
+
+**Goal:** Force the first layout to overwrite every original full-wall map cell.
+
+<!-- tutorial-edit: {"file":"src/main.c","op":"diff-region","function":"init_video","context":3} -->
+**`src\main.c` — in `init_video`, apply these changes:**
+
+```c
+    }
+    for (i = 0; i < BRICK_COUNT; ++i)
+    {
+        shown_alive[i] = 1; // [!code --]
+        shown_alive[i] = 255; // [!code ++]
+    }
+    shown_bricks = BRICK_COUNT; // [!code --]
+}
+```
+
+Cached value 255 cannot match a real brick, so preparation also erases initial holes.
+
+**Goal:** Center the wider high-score string on the title.
+
+<!-- tutorial-edit: {"file":"src/main.c","op":"diff-region","function":"show_title","context":3} -->
+**`src\main.c` — in `show_title`, apply these changes:**
+
+```c
+    bgSetMapPtr(1, 0x7400, SC_32x32);
+    bgSetEnable(1);
+    format_score(high_score_text + 11, high_score);
+    consoleDrawText(9, 18, high_score_text); // [!code --]
+    consoleDrawText(6, 18, high_score_text); // [!code ++]
+    consoleDrawText(10, 22, "PRESS START");
+    shown_mouse = -1;
+    start_music();
+```
+
+Moving the text's starting column leaves room for its two additional digits.
+
+**Goal:** Draw a fresh level number beside the score and lives.
+
+<!-- tutorial-edit: {"file":"src/main.c","op":"diff-region","function":"show_game","context":3} -->
+**`src\main.c` — in `show_game`, apply these changes:**
+
+```c
+    shown_score = -1;
+    shown_lives = -1;
+    shown_state = -1;
+    shown_level = -1; // [!code ++]
+    consoleDrawText(2, 1, "SCORE       LIVES"); // [!code --]
+    consoleDrawText(2, 1, "SCORE       LIVES     LV"); // [!code ++]
+    draw_text();
+}
+```
+
+The label adds `LV`; resetting its cache to -1 forces the current level's digit to draw.
 
 **Checkpoint:** Build and run. The ready screen shows `SCORE 00000`, `LIVES 3`,
 and `LV 1`, with holes in the wall and **56** bricks. Clear it: `LEVEL CLEAR!`
@@ -507,8 +758,8 @@ black, and fade in as the playfield rises into place.
 
 Background 1 keeps the HUD still. Background 3 stays at its gameplay position.
 Only background 2 moves. Sprites do not inherit background scrolling, so keep
-the paddle, ball, and launch prompts hidden until the entrance finishes. Do not run gameplay
-or accept launch input during the entrance.
+the paddle, ball, and launch prompts hidden until the entrance finishes.
+Do not run gameplay or accept launch input during the entrance.
 
 ### Give the map a blank half
 
@@ -547,164 +798,352 @@ Explicit forced blank permits all five brick rows to be uploaded before they
 become visible. Brightness zero alone is **not** permission to DMA into VRAM
 outside VBlank. The regular frame-end brightness write releases forced blank.
 
+---
+
+### Open `src\main.c`
+
 Replace the screen-switching and loop code in `src\main.c` as follows:
 
-```diff
---- a/src/main.c
-+++ b/src/main.c
-@@ -2,7 +2,7 @@ File-scope constants: PLAYFIELD_MAP
- #include "game.h"
- #include "res/soundbank.h"
- 
--#define PLAYFIELD_MAP 0x6C00
-+#define PLAYFIELD_MAP 0x6000
- #define BACKDROP_MAP 0x7000
- #define EMPTY_TILE 0x0800
- #define BRICK_TILE_X (BRICK_X / 8)
-@@ -15,6 +15,8 @@ File-scope constants: after MOSAIC_FRAMES
- #define GRADIENT_LINES 8
- 
- #define MOSAIC_FRAMES 30
-+#define ENTRANCE_HEIGHT 224
-+#define ENTRANCE_SPEED 4
- 
- #define SAVE_MAGIC 0x4B42
- 
-@@ -33,7 +35,8 @@ enum Screen
- 
- enum Screen {
-     SCREEN_TITLE,
--    SCREEN_GAME
-+    SCREEN_GAME,
-+    SCREEN_NEXT_LEVEL
- };
- 
- typedef struct SaveData {
-@@ -99,6 +102,8 @@ File-scope variables: after backdrop_scroll
- static int mouse_dx;
- static int shown_mouse;
- static int backdrop_scroll;
-+static int entrance_offset;
-+static u16 entrance_blank[32 * 32];
- 
- static void prepare_bricks(void)
- {
-@@ -170,6 +175,8 @@ static void draw_text(void)
-         shown_level = game.level;
-     }
- 
-+    if (entrance_offset != 0)
-+        return;
-     if (shown_state == game.state && shown_paused == paused)
-         return;
- 
-@@ -356,6 +363,9 @@ static void init_video(void)
-                   BG_16COLORS, 0x4000);
-     bgInitMapSet(1, (u8 *)playfield_map, 32 * 32 * 2, SC_32x32,
-                  PLAYFIELD_MAP);
-+    for (i = 0; i < 32 * 32; ++i)
-+        entrance_blank[i] = EMPTY_TILE;
-+    dmaCopyVram((u8 *)entrance_blank, PLAYFIELD_MAP + 0x400, 32 * 32 * 2);
-     bgInitTileSet(2, backdrop_tiles, backdrop_palette, 0,
-                   backdrop_tiles_end - backdrop_tiles, 4 * 2,
-                   BG_4COLORS, 0x5000);
-@@ -395,6 +405,8 @@ static void show_title(void)
- {
-     screen = SCREEN_TITLE;
-     backdrop_scroll = 0;
-+    entrance_offset = 0;
-+    bgSetScroll(1, 0, 0);
-     clear_text();
-     bgSetGfxPtr(1, 0x2000);
-     bgSetMapPtr(1, 0x7400, SC_32x32);
-@@ -406,15 +418,28 @@ static void show_game(void) becomes static void show_game(int advance)
-     start_music();
- }
- 
--static void show_game(void)
--{
-+static void show_game(int advance)
-+{
-+    int row;
-+
-     screen = SCREEN_GAME;
-     backdrop_scroll = 0;
-     clear_text();
-     bgSetGfxPtr(1, 0x4000);
--    bgSetMapPtr(1, PLAYFIELD_MAP, SC_32x32);
-+    bgSetMapPtr(1, PLAYFIELD_MAP, SC_32x64);
-     bgSetEnable(1);
--    game_reset(&game);
-+    if (advance)
-+        game_next_level(&game);
-+    else
-+        game_reset(&game);
-+    entrance_offset = ENTRANCE_HEIGHT;
-+    bgSetScroll(1, 0, (512 - entrance_offset) & 511);
-+    paddle_glimmer = 0;
-+    ball_glimmer = 0;
-+    mosaic_timer = 0;
-+    prepare_bricks();
-+    for (row = 0; row < BRICK_ROWS; ++row)
-+        upload_bricks();
-     paused = 0;
-     new_high_score = 0;
-     shown_score = -1;
-@@ -434,11 +459,12 @@ static void update_fade(void)
- static void update_fade(void)
- {
-     if (fade_step < 0 && brightness == 0) {
--        /* The screen is black, so it is safe to rebuild it. */
-+        /* Force blank permits the complete new brick map to be uploaded. */
-+        setScreenOff();
-         if (next_screen == SCREEN_TITLE)
-             show_title();
-         else
--            show_game();
-+            show_game(next_screen == SCREEN_NEXT_LEVEL);
-         fade_step = 1;
-     } else if (fade_step != 0) {
-         brightness += fade_step;
-@@ -523,6 +549,10 @@ static void update_game(u16 held, u16 pressed)
-     int movement;
-     int old_state;
- 
-+    if (game.state == STATE_LEVEL_CLEAR && (pressed & (KEY_B | KEY_START))) {
-+        fade_to(SCREEN_NEXT_LEVEL);
-+        return;
-+    }
-     if ((game.state == STATE_GAME_OVER || game.state == STATE_WON) &&
-         (pressed & (KEY_B | KEY_START))) {
-         fade_to(SCREEN_TITLE);
-@@ -574,7 +604,7 @@ int main(void)
-         held = padsCurrent(0);
-         pressed = padsDown(0);
-         read_mouse(&pressed);
--        if (fade_step != 0) {
-+        if (fade_step != 0 || entrance_offset != 0) {
-             held = 0;
-             pressed = 0;
-             mouse_dx = 0;
-@@ -582,13 +612,18 @@ int main(void)
-         update_fade();
-         if (screen == SCREEN_TITLE)
-             update_title(pressed);
--        else
-+        else if (entrance_offset != 0) {
-+            if (fade_step >= 0)
-+                entrance_offset -= ENTRANCE_SPEED;
-+        } else if (fade_step == 0)
-             update_game(held, pressed);
- 
-         spcProcess();
-         oamInitDynamicSpriteEndFrame();
-         WaitForVBlank();
-         bgSetScroll(2, backdrop_scroll >> 2, 0);
-+        if (screen == SCREEN_GAME)
-+            bgSetScroll(1, 0, (512 - entrance_offset) & 511);
-         setBrightness(brightness);
-         update_mosaic();
-         oamVramQueueUpdate();
+**Goal:** Reserve enough non-overlapping VRAM for a double-height playfield map.
+
+<!-- tutorial-edit: {"file":"src/main.c","op":"diff-region","scope_before":"prepare_bricks","context":3} -->
+**`src\main.c` — in file-scope declarations before `prepare_bricks`, apply these changes:**
+
+```c
+#include "game.h"
+#include "res/soundbank.h"
+
+#define PLAYFIELD_MAP 0x6C00 // [!code --]
+#define PLAYFIELD_MAP 0x6000 // [!code ++]
+#define BACKDROP_MAP  0x7000
+#define EMPTY_TILE    0x0800
+#define BRICK_TILE_X  (BRICK_X / 8)
+```
+
+Starting at `0x6000` leaves space for both 32-by-32 map screens before the text map.
+
+**Goal:** Define the entrance's starting offset and four-pixel-per-frame speed.
+
+<!-- tutorial-edit: {"file":"src/main.c","op":"diff-region","scope_before":"prepare_bricks","context":3} -->
+**`src\main.c` — in file-scope declarations before `prepare_bricks`, apply these changes:**
+
+```c
+#define GRADIENT_BANDS 28
+#define GRADIENT_LINES 8
+
+#define MOSAIC_FRAMES 30 // [!code --]
+#define MOSAIC_FRAMES   30 // [!code ++]
+#define ENTRANCE_HEIGHT 224 // [!code ++]
+#define ENTRANCE_SPEED  4 // [!code ++]
+
+#define SAVE_MAGIC 0x4B42
+
+```
+
+An offset of 224 takes 56 frames to reach zero at this speed.
+
+**Goal:** Distinguish advancing a level from starting a fresh campaign during fades.
+
+<!-- tutorial-edit: {"file":"src/main.c","op":"diff-region","scope_before":"prepare_bricks","context":3} -->
+**`src\main.c` — in file-scope declarations before `prepare_bricks`, apply these changes:**
+
+```c
+enum Screen
+{
+    SCREEN_TITLE,
+    SCREEN_GAME // [!code --]
+    SCREEN_GAME, // [!code ++]
+    SCREEN_NEXT_LEVEL // [!code ++]
+};
+
+typedef struct SaveData
+```
+
+`SCREEN_NEXT_LEVEL` is a transition target, not another playable screen.
+
+**Goal:** Retain entrance progress and a transparent second map screen.
+
+<!-- tutorial-edit: {"file":"src/main.c","op":"diff-region","scope_before":"prepare_bricks","context":3} -->
+**`src\main.c` — in file-scope declarations before `prepare_bricks`, apply these changes:**
+
+```c
+static int mouse_dx;
+static int shown_mouse;
+static int backdrop_scroll;
+static int entrance_offset; // [!code ++]
+static u16 entrance_blank[32 * 32]; // [!code ++]
+
+```
+
+The array contains 1024 map entries; the offset tracks how far the field must still rise.
+
+**Goal:** Keep launch and state prompts hidden until the playfield reaches its final position.
+
+<!-- tutorial-edit: {"file":"src/main.c","op":"diff-region","function":"draw_text","context":3} -->
+**`src\main.c` — in `draw_text`, apply these changes:**
+
+```c
+        shown_level = game.level;
+    }
+
+    if (entrance_offset != 0) // [!code ++]
+    { // [!code ++]
+        return; // [!code ++]
+    } // [!code ++]
+    if (shown_state == game.state && shown_paused == paused)
+    {
+        return;
+    }
+```
+
+The early return occurs after HUD updates, so score, lives, and level remain stationary.
+
+**Goal:** Fill the lower half of the taller map with transparent entries.
+
+<!-- tutorial-edit: {"file":"src/main.c","op":"diff-region","function":"init_video","context":3} -->
+**`src\main.c` — in `init_video`, apply these changes:**
+
+```c
+                  playfield_tiles_end - playfield_tiles, 16 * 2, BG_16COLORS,
+                  0x4000);
+    bgInitMapSet(1, (u8 *)playfield_map, 32 * 32 * 2, SC_32x32, PLAYFIELD_MAP);
+    for (i = 0; i < 32 * 32; ++i) // [!code ++]
+    { // [!code ++]
+        entrance_blank[i] = EMPTY_TILE; // [!code ++]
+    } // [!code ++]
+    dmaCopyVram((u8 *)entrance_blank, PLAYFIELD_MAP + 0x400, 32 * 32 * 2); // [!code ++]
+    bgInitTileSet(2, backdrop_tiles, backdrop_palette, 0,
+                  backdrop_tiles_end - backdrop_tiles, 4 * 2, BG_4COLORS,
+                  0x5000);
+```
+
+Uploading at `PLAYFIELD_MAP + 0x400` fills the second screen without changing the first.
+
+**Goal:** Restore the title's normal vertical position after a gameplay entrance.
+
+<!-- tutorial-edit: {"file":"src/main.c","op":"diff-region","function":"show_title","context":3} -->
+**`src\main.c` — in `show_title`, apply these changes:**
+
+```c
+{
+    screen = SCREEN_TITLE;
+    backdrop_scroll = 0;
+    entrance_offset = 0; // [!code ++]
+    bgSetScroll(1, 0, 0); // [!code ++]
+    clear_text();
+    bgSetGfxPtr(1, 0x2000);
+    bgSetMapPtr(1, 0x7400, SC_32x32);
+```
+
+The title cancels any entrance progress and resets BG2's scroll to zero.
+
+**Goal:** Let gameplay setup choose between campaign reset and level advancement.
+
+<!-- tutorial-edit: {"file":"src/main.c","op":"diff-region","function":"show_game","context":3} -->
+**`src\main.c` — in `show_game`, apply these changes:**
+
+```c
+static void show_game(void) // [!code --]
+static void show_game(int advance) // [!code ++]
+{
+    screen = SCREEN_GAME;
+    backdrop_scroll = 0;
+```
+
+The `advance` argument carries the fade target's intent into screen setup.
+
+**Goal:** Iterate through every brick row when preparing a new screen under forced blank.
+
+<!-- tutorial-edit: {"file":"src/main.c","op":"diff-region","function":"show_game","context":3} -->
+**`src\main.c` — in `show_game`, apply these changes:**
+
+```c
+static void show_game(int advance)
+{
+    int row; // [!code ++]
+ // [!code ++]
+    screen = SCREEN_GAME;
+    backdrop_scroll = 0;
+    clear_text();
+```
+
+The local row index supports a bounded number of immediate row uploads.
+
+**Goal:** Make BG2 use the full 32-by-64 playfield map during gameplay.
+
+<!-- tutorial-edit: {"file":"src/main.c","op":"diff-region","function":"show_game","context":3} -->
+**`src\main.c` — in `show_game`, apply these changes:**
+
+```c
+    backdrop_scroll = 0;
+    clear_text();
+    bgSetGfxPtr(1, 0x4000);
+    bgSetMapPtr(1, PLAYFIELD_MAP, SC_32x32); // [!code --]
+    bgSetMapPtr(1, PLAYFIELD_MAP, SC_32x64); // [!code ++]
+    bgSetEnable(1);
+    game_reset(&game);
+    paused = 0;
+```
+
+The map-size flag allows scroll to reveal the transparent lower screen rather
+than repeat the original wall.
+
+**Goal:** Prepare the next field while black and begin its entrance with clean effects.
+
+<!-- tutorial-edit: {"file":"src/main.c","op":"diff-region","function":"show_game","context":3} -->
+**`src\main.c` — in `show_game`, apply these changes:**
+
+```c
+    bgSetGfxPtr(1, 0x4000);
+    bgSetMapPtr(1, PLAYFIELD_MAP, SC_32x64);
+    bgSetEnable(1);
+    if (advance) // [!code ++]
+    { // [!code ++]
+        game_next_level(&game); // [!code ++]
+    } // [!code ++]
+    else // [!code ++]
+    { // [!code ++]
+    game_reset(&game); // [!code --]
+        game_reset(&game); // [!code ++]
+    } // [!code ++]
+    entrance_offset = ENTRANCE_HEIGHT; // [!code ++]
+    bgSetScroll(1, 0, (512 - entrance_offset) & 511); // [!code ++]
+    paddle_glimmer = 0; // [!code ++]
+    ball_glimmer = 0; // [!code ++]
+    mosaic_timer = 0; // [!code ++]
+    prepare_bricks(); // [!code ++]
+    for (row = 0; row < BRICK_ROWS; ++row) // [!code ++]
+    { // [!code ++]
+        upload_bricks(); // [!code ++]
+    } // [!code ++]
+    paused = 0;
+    new_high_score = 0;
+    shown_score = -1;
+```
+
+Setup advances or resets the game, positions the map below the view, clears
+animation timers, and uploads the prepared brick rows before revealing them.
+
+**Goal:** Explicitly force blank before rebuilding an entire screen's map.
+
+<!-- tutorial-edit: {"file":"src/main.c","op":"diff-region","function":"update_fade","context":3} -->
+**`src\main.c` — in `update_fade`, apply these changes:**
+
+```c
+{
+    if (fade_step < 0 && brightness == 0)
+    {
+        /* The screen is black, so it is safe to rebuild it. */ // [!code --]
+        /* Force blank permits the complete new brick map to be uploaded. */ // [!code ++]
+        setScreenOff(); // [!code ++]
+        if (next_screen == SCREEN_TITLE)
+        {
+            show_title();
+```
+
+`setScreenOff` permits the multi-row DMA outside the regular frame-end VBlank window.
+
+**Goal:** Preserve score and lives when the fade target requests the next level.
+
+<!-- tutorial-edit: {"file":"src/main.c","op":"diff-region","function":"update_fade","context":3} -->
+**`src\main.c` — in `update_fade`, apply these changes:**
+
+```c
+        }
+        else
+        {
+            show_game(); // [!code --]
+            show_game(next_screen == SCREEN_NEXT_LEVEL); // [!code ++]
+        }
+        fade_step = 1;
+    }
+```
+
+The target comparison supplies `advance = 1` only for a next-level transition.
+
+**Goal:** Route level-clear continuation through the fade and entrance sequence.
+
+<!-- tutorial-edit: {"file":"src/main.c","op":"diff-region","function":"update_game","context":3} -->
+**`src\main.c` — in `update_game`, apply these changes:**
+
+```c
+    int movement;
+    int old_state;
+
+    if (game.state == STATE_LEVEL_CLEAR && (pressed & (KEY_B | KEY_START))) // [!code ++]
+    { // [!code ++]
+        fade_to(SCREEN_NEXT_LEVEL); // [!code ++]
+        return; // [!code ++]
+    } // [!code ++]
+    if ((game.state == STATE_GAME_OVER || game.state == STATE_WON) &&
+        (pressed & (KEY_B | KEY_START)))
+    {
+```
+
+The early return prevents the same press from advancing through the ordinary game tick.
+
+**Goal:** Suppress both controller and mouse actions throughout fades and entrances.
+
+<!-- tutorial-edit: {"file":"src/main.c","op":"diff-region","function":"main","context":3} -->
+**`src\main.c` — in `main`, apply these changes:**
+
+```c
+        held = padsCurrent(0);
+        pressed = padsDown(0);
+        read_mouse(&pressed);
+        if (fade_step != 0) // [!code --]
+        if (fade_step != 0 || entrance_offset != 0) // [!code ++]
+        {
+            held = 0;
+            pressed = 0;
+            mouse_dx = 0;
+        }
+```
+
+The existing input-clearing branch now covers either active transition.
+
+**Goal:** Advance the entrance without running gameplay, then resume on a later frame.
+
+<!-- tutorial-edit: {"file":"src/main.c","op":"diff-region","function":"main","context":3} -->
+**`src\main.c` — in `main`, apply these changes:**
+
+```c
+        {
+            update_title(pressed);
+        }
+        else if (entrance_offset != 0) // [!code ++]
+        else // [!code --]
+        { // [!code ++]
+            if (fade_step >= 0) // [!code ++]
+            { // [!code ++]
+                entrance_offset -= ENTRANCE_SPEED; // [!code ++]
+            } // [!code ++]
+        } // [!code ++]
+        else if (fade_step == 0) // [!code ++]
+        {
+            update_game(held, pressed);
+        }
+```
+
+The mutually exclusive branches keep gameplay frozen during fade-out and
+even on the frame that completes the entrance.
+
+**Goal:** Apply BG2's entrance offset during VBlank while gameplay is displayed.
+
+<!-- tutorial-edit: {"file":"src/main.c","op":"diff-region","function":"main","context":3} -->
+**`src\main.c` — in `main`, apply these changes:**
+
+```c
+        oamInitDynamicSpriteEndFrame();
+        WaitForVBlank();
+        bgSetScroll(2, backdrop_scroll >> 2, 0);
+        if (screen == SCREEN_GAME) // [!code ++]
+        { // [!code ++]
+            bgSetScroll(1, 0, (512 - entrance_offset) & 511); // [!code ++]
+        } // [!code ++]
+        setBrightness(brightness);
+        update_mosaic();
+        oamVramQueueUpdate();
 ```
 
 Notice the `else if` structure in the main loop. Even on the frame that reduces
@@ -748,66 +1187,117 @@ We already removed the count-only cache in section 2. That matters again:
 a health change does not change `bricks_left`, but it must change the picture.
 Keep comparing the byte value and marking that row dirty.
 
+---
+
+### Open `src\game.c`
+
 Edit `src\game.c` and `src\main.c`:
 
-```diff
---- a/src/game.c
-+++ b/src/game.c
-@@ -2,7 +2,7 @@ File-scope levels table: first level's top row
- 
- static const char levels[LEVEL_COUNT][BRICK_ROWS][BRICK_COLS + 1] = {
-     {
--        "11111111111111",
-+        "22222222222222",
-         "11001100110011",
-         "11111111111111",
-         "00110011001100",
-@@ -16,7 +16,7 @@ File-scope levels table: third level's top row
-         "00000111100000"
-     },
-     {
--        "11111111111111",
-+        "33333333333333",
-         "10010011001001",
-         "11111111111111",
-         "00110100101100",
-@@ -109,7 +109,9 @@ static int hit_brick(Game *game, int x, int y)
-             index = row * BRICK_COLS + col;
-             if (game->bricks[index]) {
-                 game->hits |= HIT_BRICK;
--                game->bricks[index] = 0;
-+                --game->bricks[index];
-+                if (game->bricks[index])
-+                    return 1;
-                 game->score += 10;
-                 --game->bricks_left;
-                 if (game->bricks_left == 0) {
+**Goal:** Give the first and final levels tougher top-row bricks.
+
+<!-- tutorial-edit: {"file":"src/game.c","op":"diff-region","scope_before":"magnitude","context":3} -->
+**`src\game.c` — in file-scope declarations before `magnitude`, apply these changes:**
+
+```c
+#include "game.h"
+
+static const char levels[LEVEL_COUNT][BRICK_ROWS][BRICK_COLS + 1] = {
+    {"11111111111111", "11001100110011", "11111111111111", "00110011001100", // [!code --]
+    {"22222222222222", "11001100110011", "11111111111111", "00110011001100", // [!code ++]
+     "11111111111111"},
+    {"00000111100000", "00011111111000", "01111111111110", "00011111111000",
+     "00000111100000"},
+    {"11111111111111", "10010011001001", "11111111111111", "00110100101100", // [!code --]
+    {"33333333333333", "10010011001001", "11111111111111", "00110100101100", // [!code ++]
+     "11111111111111"}};
+
 ```
 
-```diff
---- a/src/main.c
-+++ b/src/main.c
-@@ -111,14 +111,17 @@ static void prepare_bricks(void)
-     int row;
-     int col;
-     int tile;
-+    int health;
- 
-     index = 0;
-     for (row = 0; row < BRICK_ROWS; ++row) {
--        tile = (BRICK_TILE_Y + row) * 32 + BRICK_TILE_X;
-         for (col = 0; col < BRICK_COLS * 2; col += 2) {
-             if (shown_alive[index] != game.bricks[index]) {
-                 shown_alive[index] = game.bricks[index];
--                if (game.bricks[index]) {
-+                health = game.bricks[index];
-+                if (health) {
-+                    tile = (BRICK_TILE_Y + BRICK_ROWS - health) * 32
-+                           + BRICK_TILE_X;
-                     brick_map[row][col] = playfield_map[tile + col];
-                     brick_map[row][col + 1] = playfield_map[tile + col + 1];
-                 } else {
+Layout characters `2` and `3` become remaining-hit counts through the existing loader.
+
+**Goal:** Damage tough bricks without awarding destruction points too early.
+
+<!-- tutorial-edit: {"file":"src/game.c","op":"diff-region","function":"hit_brick","context":3} -->
+**`src\game.c` — in `hit_brick`, apply these changes:**
+
+```c
+            if (game->bricks[index])
+            {
+                game->hits |= HIT_BRICK;
+                game->bricks[index] = 0; // [!code --]
+                --game->bricks[index]; // [!code ++]
+                if (game->bricks[index]) // [!code ++]
+                { // [!code ++]
+                    return 1; // [!code ++]
+                } // [!code ++]
+                game->score += 10;
+                --game->bricks_left;
+                if (game->bricks_left == 0)
 ```
+
+
+
+The helper reports an impact after decrementing health; score and live count change
+only when the health reaches zero.
+
+---
+
+### Open `src\main.c`
+
+**Goal:** Read each brick's remaining health when selecting its artwork.
+
+<!-- tutorial-edit: {"file":"src/main.c","op":"diff-region","function":"prepare_bricks","context":3} -->
+**`src\main.c` — in `prepare_bricks`, apply these changes:**
+
+```c
+    int row;
+    int col;
+    int tile;
+    int health; // [!code ++]
+
+    index = 0;
+    for (row = 0; row < BRICK_ROWS; ++row)
+```
+
+The local value distinguishes an empty cell from its one-, two-, or three-hit appearance.
+
+**Goal:** Choose source tiles by health while retaining each brick's destination row.
+
+<!-- tutorial-edit: {"file":"src/main.c","op":"diff-region","function":"prepare_bricks","context":3} -->
+**`src\main.c` — in `prepare_bricks`, apply these changes:**
+
+```c
+    index = 0;
+    for (row = 0; row < BRICK_ROWS; ++row)
+    {
+        tile = (BRICK_TILE_Y + row) * 32 + BRICK_TILE_X; // [!code --]
+        for (col = 0; col < BRICK_COLS * 2; col += 2)
+        {
+            if (shown_alive[index] != game.bricks[index])
+            {
+                shown_alive[index] = game.bricks[index];
+                if (game.bricks[index]) // [!code --]
+                health = game.bricks[index]; // [!code ++]
+                if (health) // [!code ++]
+                {
+                    tile = (BRICK_TILE_Y + BRICK_ROWS - health) * 32 + // [!code ++]
+                           BRICK_TILE_X; // [!code ++]
+                    brick_map[row][col] = playfield_map[tile + col];
+                    brick_map[row][col + 1] = playfield_map[tile + col + 1];
+                }
+                else
+                {
+                    brick_map[row][col] = EMPTY_TILE;
+                    brick_map[row][col + 1] = EMPTY_TILE;
+                }
+                row_changed[row] = 1;
+            }
+            ++index;
+        }
+```
+
+Health selects one of the existing colored artwork rows; the destination remains
+the changed brick's actual grid position.
 
 **Checkpoint:** Build and run. The first level has a differently colored top
 row. A hit changes one of those bricks to the one-hit color without scoring
@@ -859,149 +1349,198 @@ frame. Do not change only the velocities; the movement loop must spend the
 new units too, or the ball will move at the wrong speed. Clear both remainders
 when attaching the ball or choosing a fresh paddle angle.
 
+---
+
+### Open `src\game.h`
+
 Edit `src\game.h` and `src\game.c`:
 
-```diff
---- a/src/game.h
-+++ b/src/game.h
-@@ -8,6 +8,7 @@ File-scope constants: after BALL_SUBSTEPS
- 
- #define BALL_SIZE 8
- #define BALL_SUBSTEPS 3
-+#define BALL_UNIT 16
- #define PADDLE_WIDTH 48
- #define PADDLE_HEIGHT 8
- #define PADDLE_Y 200
-@@ -46,6 +47,8 @@ struct Game
-     int state;
-     int hits;
-     int level;
-+    int ball_fraction_x;
-+    int ball_fraction_y;
-     unsigned char bricks[BRICK_COUNT];
- } Game;
- 
+**Goal:** Express velocity in sixteenths of a pixel.
+
+<!-- tutorial-edit: {"file":"src/game.h","op":"diff-region","context":3} -->
+**`src\game.h` — in the file, apply these changes:**
+
+```c
+
+#define BALL_SIZE     8
+#define BALL_SUBSTEPS 3
+#define BALL_UNIT     16 // [!code ++]
+#define PADDLE_WIDTH  48
+#define PADDLE_HEIGHT 8
+#define PADDLE_Y      200
 ```
 
-```diff
---- a/src/game.c
-+++ b/src/game.c
-@@ -35,8 +35,10 @@ static void attach_ball(Game *game)
- {
-     game->ball_x = game->paddle_x + (PADDLE_WIDTH - BALL_SIZE) / 2;
-     game->ball_y = PADDLE_Y - BALL_SIZE;
--    game->vx = 1;
--    game->vy = -3;
-+    game->vx = BALL_UNIT;
-+    game->vy = -3 * BALL_UNIT;
-+    game->ball_fraction_x = 0;
-+    game->ball_fraction_y = 0;
- }
- 
- static void load_level(Game *game)
-@@ -147,16 +149,24 @@ static void paddle_bounce(Game *game)
-     int hit_position;
- 
-     hit_position = game->ball_x + BALL_SIZE / 2 - game->paddle_x;
--    if (hit_position < PADDLE_WIDTH / 3) {
--        game->vx = -2;
--        game->vy = -2;
--    } else if (hit_position >= 2 * PADDLE_WIDTH / 3) {
--        game->vx = 2;
--        game->vy = -2;
--    } else {
--        game->vx = game->vx < 0 ? -1 : 1;
--        game->vy = -3;
--    }
-+    if (hit_position < PADDLE_WIDTH / 5) {
-+        game->vx = -40;
-+        game->vy = -24;
-+    } else if (hit_position < 2 * PADDLE_WIDTH / 5) {
-+        game->vx = -24;
-+        game->vy = -40;
-+    } else if (hit_position < 3 * PADDLE_WIDTH / 5) {
-+        game->vx = game->vx < 0 ? -8 : 8;
-+        game->vy = -48;
-+    } else if (hit_position < 4 * PADDLE_WIDTH / 5) {
-+        game->vx = 24;
-+        game->vy = -40;
-+    } else {
-+        game->vx = 40;
-+        game->vy = -24;
-+    }
-+    game->ball_fraction_x = 0;
-+    game->ball_fraction_y = 0;
- }
- 
- static void move_ball_y(Game *game)
+`BALL_UNIT` defines how many accumulated velocity units buy one pixel of movement.
+
+**Goal:** Preserve fractional movement separately for the X and Y axes.
+
+<!-- tutorial-edit: {"file":"src/game.h","op":"diff-region","context":3} -->
+**`src\game.h` — in the file, apply these changes:**
+
+```c
+    int state;
+    int hits;
+    int level;
+    int ball_fraction_x; // [!code ++]
+    int ball_fraction_y; // [!code ++]
+    unsigned char bricks[BRICK_COUNT];
+} Game;
+
 ```
 
-### Replace the complete movement function
 
-The movement loop now needs braces around each axis's `if`, because each branch
-both spends a pixel's worth of units and attempts the move. Rather than splice
-those braces into the old loop, replace the **entire `game_tick` function** in
-`src\game.c` with this version. Do not replace the rest of the file.
+
+The two accumulators retain each axis's unspent fraction between ticks.
+
+---
+
+### Open `src\game.c`
+
+**Goal:** Keep the existing launch speed in the new units and clear old fractions.
+
+<!-- tutorial-edit: {"file":"src/game.c","op":"diff-region","function":"attach_ball","context":3} -->
+**`src\game.c` — in `attach_ball`, apply these changes:**
+
+```c
+{
+    game->ball_x = game->paddle_x + (PADDLE_WIDTH - BALL_SIZE) / 2;
+    game->ball_y = PADDLE_Y - BALL_SIZE;
+    game->vx = 1; // [!code --]
+    game->vx = BALL_UNIT; // [!code ++]
+    game->vy = -3; // [!code --]
+    game->vy = -3 * BALL_UNIT; // [!code ++]
+    game->ball_fraction_x = 0; // [!code ++]
+    game->ball_fraction_y = 0; // [!code ++]
+}
+```
+
+Multiplying by `BALL_UNIT` preserves one horizontal and three upward pixels per frame.
+
+**Goal:** Select five arcade rebound angles, including a half-pixel center drift.
+
+<!-- tutorial-edit: {"file":"src/game.c","op":"diff-region","function":"paddle_bounce","context":3} -->
+**`src\game.c` — in `paddle_bounce`, apply these changes:**
+
+```c
+    int hit_position;
+
+    hit_position = game->ball_x + BALL_SIZE / 2 - game->paddle_x;
+    if (hit_position < PADDLE_WIDTH / 3) // [!code --]
+    if (hit_position < PADDLE_WIDTH / 5) // [!code ++]
+    {
+        game->vx = -2; // [!code --]
+        game->vx = -40; // [!code ++]
+        game->vy = -2; // [!code --]
+        game->vy = -24; // [!code ++]
+    }
+    else if (hit_position >= 2 * PADDLE_WIDTH / 3) // [!code --]
+    else if (hit_position < 2 * PADDLE_WIDTH / 5) // [!code ++]
+    {
+        game->vx = 2; // [!code --]
+        game->vx = -24; // [!code ++]
+        game->vy = -2; // [!code --]
+        game->vy = -40; // [!code ++]
+    } // [!code ++]
+    else if (hit_position < 3 * PADDLE_WIDTH / 5) // [!code ++]
+    { // [!code ++]
+        game->vx = game->vx < 0 ? -8 : 8; // [!code ++]
+        game->vy = -48; // [!code ++]
+    } // [!code ++]
+    else if (hit_position < 4 * PADDLE_WIDTH / 5) // [!code ++]
+    { // [!code ++]
+        game->vx = 24; // [!code ++]
+        game->vy = -40; // [!code ++]
+    }
+    else
+    {
+        game->vx = game->vx < 0 ? -1 : 1; // [!code --]
+        game->vy = -3; // [!code --]
+        game->vx = 40; // [!code ++]
+        game->vy = -24; // [!code ++]
+    }
+    game->ball_fraction_x = 0; // [!code ++]
+    game->ball_fraction_y = 0; // [!code ++]
+}
+```
+
+The zones use velocities measured in sixteenths and clear both remainders on
+contact so a new angle starts without leftover movement.
+
+### Spend fractional movement in one-pixel steps
+
+The movement loop must spend a pixel's worth of units before attempting each
+axis's move. Apply the following three edits inside `game_tick` in
+`src\game.c`; its existing braces and state checks stay in place.
 
 The state handling at the top is unchanged. The two accumulators are updated
 only after those early returns, so an attached ball or completed level does not
 build up movement. Each axis's move is followed by the existing state check,
 and the bottom-of-field check still handles a lost life.
 
-<!-- replace-function: src/game.c game_tick -->
+**Goal:** Add the frame's velocity to both fractional movement budgets.
+
+<!-- tutorial-edit: {"file":"src/game.c","op":"diff-region","function":"game_tick","context":3} -->
+**`src\game.c` — in `game_tick`, apply these changes:**
+
 ```c
-void game_tick(Game *game, int movement, int action_pressed)
-{
-    int step;
-
-    game->hits = 0;
-    if (game->state == STATE_LEVEL_CLEAR) {
-        if (action_pressed)
-            game_next_level(game);
-        return;
-    }
-    if (game->state == STATE_GAME_OVER || game->state == STATE_WON) {
-        if (action_pressed)
-            game_reset(game);
         return;
     }
 
-    game_move_paddle(game, movement * PADDLE_SPEED);
+    /* Check each pixel, rather than jumping across a thin brick. */ // [!code --]
+    game->ball_fraction_x += magnitude(game->vx); // [!code ++]
+    game->ball_fraction_y += magnitude(game->vy); // [!code ++]
+    /* Spend sixteenths one pixel at a time, retaining the fractional part. */ // [!code ++]
+    for (step = 0; step < BALL_SUBSTEPS; ++step)
+    {
+        if (step < magnitude(game->vx))
+```
 
-    if (game->state == STATE_READY) {
-        attach_ball(game);
-        if (action_pressed)
-            game->state = STATE_PLAYING;
-        return;
-    }
+Magnitudes add positive budgets; each movement helper still gets direction from the velocity.
 
-    game->ball_fraction_x += magnitude(game->vx);
-    game->ball_fraction_y += magnitude(game->vy);
+**Goal:** Spend one pixel's X budget before attempting horizontal movement.
+
+<!-- tutorial-edit: {"file":"src/game.c","op":"diff-region","function":"game_tick","context":3} -->
+**`src\game.c` — in `game_tick`, apply these changes:**
+
+```c
     /* Spend sixteenths one pixel at a time, retaining the fractional part. */
-    for (step = 0; step < BALL_SUBSTEPS; ++step) {
-        if (game->ball_fraction_x >= BALL_UNIT) {
-            game->ball_fraction_x -= BALL_UNIT;
+    for (step = 0; step < BALL_SUBSTEPS; ++step)
+    {
+        if (step < magnitude(game->vx)) // [!code --]
+        if (game->ball_fraction_x >= BALL_UNIT) // [!code ++]
+        {
+            game->ball_fraction_x -= BALL_UNIT; // [!code ++]
             move_ball_x(game);
         }
         if (game->state != STATE_PLAYING)
+```
+
+An attempt occurs only with at least sixteen units, retaining any remainder for later frames.
+
+**Goal:** Spend the Y budget through the same one-pixel collision process.
+
+<!-- tutorial-edit: {"file":"src/game.c","op":"diff-region","function":"game_tick","context":3} -->
+**`src\game.c` — in `game_tick`, apply these changes:**
+
+```c
+        {
             return;
-        if (game->ball_fraction_y >= BALL_UNIT) {
-            game->ball_fraction_y -= BALL_UNIT;
+        }
+        if (step < magnitude(game->vy)) // [!code --]
+        if (game->ball_fraction_y >= BALL_UNIT) // [!code ++]
+        {
+            game->ball_fraction_y -= BALL_UNIT; // [!code ++]
             move_ball_y(game);
         }
         if (game->state != STATE_PLAYING)
-            return;
-        if (game->ball_y >= FIELD_BOTTOM) {
-            lose_life(game);
-            return;
-        }
-    }
-}
 ```
 
+Each axis keeps its independent remainder; the existing state and lost-ball
+checks still run after its movement attempt.
+
 **Checkpoint:** Build and run. Launching still moves the ball one pixel
-sideways and three upward each frame. Catch it at five different positions:
-the outer zones give wider angles and a center catch drifts only half a pixel
+sideways and three upward each frame. Bounce it off five different paddle positions:
+the outer zones give wider angles and a center hit drifts only half a pixel
 sideways per frame. It still bounces off both walls, the ceiling, every brick
 face, and the top of the paddle without passing through them.
 
@@ -1010,6 +1549,19 @@ face, and the top of the paddle without passing through them.
 ---
 
 ## 6. Drop collectible capsules
+
+### Check the PVSnesLib 4.6.0 mouse workaround
+
+If the screen stays completely black before the title appears after this
+section, check your mouse initialization. In **PVSnesLib 4.6.0**,
+`initMouse` has an incorrect return instruction; changing the ROM's code
+placement can expose the crash. The capsules themselves are not the cause.
+
+Keep the [`init_mouse` workaround from Part 3](README-part3.md#work-around-mouse-initialization-in-pvsneslib-460)
+and call `init_mouse()` in `main`, not `initMouse(MOUSE_SLOW)`.
+If your project still uses the old call, add that helper now.
+Later PVSnesLib versions may fix the SDK routine; this workaround is
+specifically for 4.6.0.
 
 ### Use a small object pool
 
@@ -1038,9 +1590,6 @@ converter does not rearrange those indices. We reuse the sprite palette already
 loaded in Part 2; loading a separate capsule palette into that slot would
 recolor the ball and paddle too.
 
-The optional [art generator](tools/make_part4_capsule.py) recreates the PNG,
-but is not part of the learner build.
-
 ### Keep sprite slots separate
 
 The ball uses dynamic slot 0. The normal paddle uses slots 1-3; reserve slot 4
@@ -1049,244 +1598,464 @@ Initialize those slots as small sprites, draw only active capsules, and let
 `oamInitDynamicSpriteEndFrame` hide slots not drawn that frame. Do not clear the
 whole OAM buffer each frame or you will discard the dynamic engine's cache.
 
+---
+
+### Open `src\game.h`
+
 Add the conversion rule and binary data, gameplay code, sprite initialization,
 drawing, and collection sound:
 
-```diff
---- a/src/game.h
-+++ b/src/game.h
-@@ -26,6 +26,11 @@ File-scope constants: after LEVEL_COUNT
- #define HIT_PADDLE 2
- #define HIT_BRICK 4
- #define LEVEL_COUNT 3
-+#define HIT_CAPSULE 8
-+#define CAPSULE_COUNT 3
-+#define CAPSULE_SIZE 8
-+#define CAPSULE_SPEED 2
-+#define CAPSULE_INTERVAL 4
- 
- enum GameState {
-     STATE_READY,
-@@ -34,6 +39,12 @@ File scope: add struct Capsule between enum GameState and struct Game
-     STATE_WON,
-     STATE_LEVEL_CLEAR
- };
-+
-+typedef struct Capsule {
-+    int x;
-+    int y;
-+    int active;
-+} Capsule;
- 
- typedef struct Game {
-     int paddle_x;
-@@ -49,6 +60,8 @@ struct Game
-     int level;
-     int ball_fraction_x;
-     int ball_fraction_y;
-+    int drops;
-+    Capsule capsules[CAPSULE_COUNT];
-     unsigned char bricks[BRICK_COUNT];
- } Game;
- 
+**Goal:** Define capsule capacity, geometry, speed, drop interval, and collection events.
+
+<!-- tutorial-edit: {"file":"src/game.h","op":"diff-region","context":3} -->
+**`src\game.h` — in the file, apply these changes:**
+
+```c
+#define BRICK_WIDTH  16
+#define BRICK_HEIGHT 8
+
+#define HIT_WALL    1 // [!code --]
+#define HIT_WALL         1 // [!code ++]
+#define HIT_PADDLE  2 // [!code --]
+#define HIT_PADDLE       2 // [!code ++]
+#define HIT_BRICK   4 // [!code --]
+#define HIT_BRICK        4 // [!code ++]
+#define LEVEL_COUNT 3 // [!code --]
+#define LEVEL_COUNT      3 // [!code ++]
+#define HIT_CAPSULE      8 // [!code ++]
+#define CAPSULE_COUNT    3 // [!code ++]
+#define CAPSULE_SIZE     8 // [!code ++]
+#define CAPSULE_SPEED    2 // [!code ++]
+#define CAPSULE_INTERVAL 4 // [!code ++]
+
+enum GameState
+{
 ```
 
-```diff
---- a/src/game.c
-+++ b/src/game.c
-@@ -41,6 +41,17 @@ Between attach_ball and load_level: add clear_capsules
-     game->ball_fraction_y = 0;
- }
- 
-+static void clear_capsules(Game *game)
-+{
-+    int i;
-+
-+    for (i = 0; i < CAPSULE_COUNT; ++i) {
-+        game->capsules[i].x = 0;
-+        game->capsules[i].y = 0;
-+        game->capsules[i].active = 0;
-+    }
-+}
-+
- static void load_level(Game *game)
- {
-     int row;
-@@ -51,6 +62,8 @@ static void load_level(Game *game)
-     game->bricks_left = 0;
-     game->state = STATE_READY;
-     game->hits = 0;
-+    game->drops = 0;
-+    clear_capsules(game);
-     i = 0;
-     for (row = 0; row < BRICK_ROWS; ++row) {
-         for (col = 0; col < BRICK_COLS; ++col) {
-@@ -76,6 +89,46 @@ After game_next_level: add drop_capsule and update_capsules
-     if (game->state == STATE_LEVEL_CLEAR && game->level + 1 < LEVEL_COUNT) {
-         ++game->level;
-         load_level(game);
-+    }
-+}
-+
-+static void drop_capsule(Game *game, int row, int col)
-+{
-+    int i;
-+
-+    ++game->drops;
-+    if (game->drops % CAPSULE_INTERVAL != 0 || game->bricks_left == 0)
-+        return;
-+    for (i = 0; i < CAPSULE_COUNT; ++i) {
-+        if (!game->capsules[i].active) {
-+            game->capsules[i].x = BRICK_X + col * BRICK_WIDTH
-+                                 + (BRICK_WIDTH - CAPSULE_SIZE) / 2;
-+            game->capsules[i].y = BRICK_Y + row * BRICK_HEIGHT;
-+            game->capsules[i].active = 1;
-+            return;
-+        }
-+    }
-+}
-+
-+static void update_capsules(Game *game)
-+{
-+    int i;
-+    Capsule *capsule;
-+
-+    for (i = 0; i < CAPSULE_COUNT; ++i) {
-+        capsule = &game->capsules[i];
-+        if (!capsule->active)
-+            continue;
-+        capsule->y += CAPSULE_SPEED;
-+        if (capsule->y < PADDLE_Y + PADDLE_HEIGHT &&
-+            capsule->y + CAPSULE_SIZE > PADDLE_Y &&
-+            capsule->x < game->paddle_x + PADDLE_WIDTH &&
-+            capsule->x + CAPSULE_SIZE > game->paddle_x) {
-+            capsule->active = 0;
-+            game->hits |= HIT_CAPSULE;
-+        } else if (capsule->y >= FIELD_BOTTOM) {
-+            capsule->active = 0;
-+        }
-     }
- }
- 
-@@ -116,7 +169,9 @@ static int hit_brick(Game *game, int x, int y)
-                     return 1;
-                 game->score += 10;
-                 --game->bricks_left;
-+                drop_capsule(game, row, col);
-                 if (game->bricks_left == 0) {
-+                    clear_capsules(game);
-                     if (game->level + 1 == LEVEL_COUNT)
-                         game->state = STATE_WON;
-                     else
-@@ -194,6 +249,7 @@ static void lose_life(Game *game)
- 
- static void lose_life(Game *game)
- {
-+    clear_capsules(game);
-     --game->lives;
-     if (game->lives == 0) {
-         game->state = STATE_GAME_OVER;
-@@ -239,6 +295,7 @@ void game_tick(Game *game, int movement, int action_pressed)
-         return;
-     }
- 
-+    update_capsules(game);
-     game->ball_fraction_x += magnitude(game->vx);
-     game->ball_fraction_y += magnitude(game->vy);
-     /* Spend sixteenths one pixel at a time, retaining the fractional part. */
+The pool holds three eight-pixel capsules; a fourth event bit reports collection.
+
+**Goal:** Represent a falling capsule with its position and active status.
+
+<!-- tutorial-edit: {"file":"src/game.h","op":"diff-region","context":3} -->
+**`src\game.h` — in the file, apply these changes:**
+
+```c
+enum GameState
+{
+    STATE_READY,
+    STATE_PLAYING,
+    STATE_GAME_OVER,
+    STATE_WON,
+    STATE_LEVEL_CLEAR
+};
+ // [!code ++]
+typedef struct Capsule // [!code ++]
+{ // [!code ++]
+    int x; // [!code ++]
+    int y; // [!code ++]
+    int active; // [!code ++]
+} Capsule; // [!code ++]
+
+typedef struct Game
+{
 ```
 
-```diff
---- a/src/main.c
-+++ b/src/main.c
-@@ -49,6 +49,7 @@ File-scope asset declarations: after ball_tiles
- 
- extern u8 paddle_tiles[];
- extern u8 ball_tiles[];
-+extern u8 capsule_tiles[];
- extern u8 sprite_palette[];
- extern u8 backdrop_tiles[], backdrop_tiles_end[];
- extern u8 backdrop_map[];
-@@ -227,6 +228,7 @@ static void draw_sprites(void)
- {
-     int paddle_frame;
-     int ball_frame;
-+    int i;
- 
-     if (game.hits & HIT_PADDLE)
-         paddle_glimmer = GLIMMER_FRAMES * GLIMMER_TICKS;
-@@ -247,6 +249,13 @@ static void draw_sprites(void)
-     oamMetaDrawDyn16(1, game.paddle_x, PADDLE_Y,
-                      (u8 *)paddle_frames[paddle_frame], paddle_tiles,
-                      OBJ_LARGE);
-+    for (i = 0; i < CAPSULE_COUNT; ++i) {
-+        if (game.capsules[i].active) {
-+            oambuffer[5 + i].oamx = game.capsules[i].x;
-+            oambuffer[5 + i].oamy = game.capsules[i].y;
-+            oamDynamic8Draw(5 + i);
-+        }
-+    }
- }
- 
- static void play_effect(int sound, int pitch)
-@@ -281,6 +290,8 @@ static void play_sounds(int old_state)
-         } else if (old_state == STATE_PLAYING) {
-             play_effect(SFX_STRINGS, 3);
-         }
-+    } else if (game.hits & HIT_CAPSULE) {
-+        play_effect(SFX_PIANO, 6);
-     } else if (game.hits & HIT_BRICK) {
-         play_effect(SFX_COWBELL, 4);
-     } else if (game.hits & HIT_PADDLE) {
-@@ -380,6 +391,8 @@ static void init_video(void)
-     ball_glimmer = 0;
-     shown_paddle_frame = -1;
-     init_sprite(0, ball_tiles, 0, OBJ_SIZES);
-+    for (i = 0; i < CAPSULE_COUNT; ++i)
-+        init_sprite(5 + i, capsule_tiles, 0, OBJ_SIZES);
- 
-     setMode(BG_MODE1, 0);
-     init_gradient();
+An inactive slot can be reused without allocating or freeing memory.
+
+**Goal:** Keep the drop counter and capsule pool inside the gameplay state.
+
+<!-- tutorial-edit: {"file":"src/game.h","op":"diff-region","context":3} -->
+**`src\game.h` — in the file, apply these changes:**
+
+```c
+    int level;
+    int ball_fraction_x;
+    int ball_fraction_y;
+    int drops; // [!code ++]
+    Capsule capsules[CAPSULE_COUNT]; // [!code ++]
+    unsigned char bricks[BRICK_COUNT];
+} Game;
+
 ```
 
-```diff
---- a/Makefile
-+++ b/Makefile
-@@ -35,6 +35,9 @@ After the ball.pic rule: add the capsule.pic rule
- ball.pic: ball.png
- 	$(GFXCONV) -s 8 -R -o 16 -u 16 -p -t png -i $<
- 
-+capsule.pic: capsule.png
-+	$(GFXCONV) -s 8 -R -o 16 -u 16 -p -t png -i $<
-+
- playfield.pic: playfield.png
- 	$(GFXCONV) -s 8 -o 16 -u 16 -e 2 -p -m -t png -i $<
- 
-@@ -44,7 +47,7 @@ src/data.obj dependency rule
- title-logo.pic: title-logo.png
- 	$(GFXCONV) -s 8 -o 64 -u 16 -e 3 -p -m -t png -i $<
- 
--src/data.obj: paddle.pic ball.pic playfield.pic backdrop.pic title-logo.pic
-+src/data.obj: paddle.pic ball.pic capsule.pic playfield.pic backdrop.pic title-logo.pic
- src/main.obj src/game.obj: src/game.h
- 
- clean: cleanBuildRes cleanRom cleanGfx cleanAudio
+
+
+The counter tracks destroyed bricks; the fixed array carries all falling objects.
+
+---
+
+### Open `src\game.c`
+
+**Goal:** Reset every capsule slot to an explicitly inactive state.
+
+<!-- tutorial-edit: {"file":"src/game.c","op":"add-function","name":"clear_capsules","before":"load_level"} -->
+**`src\game.c` — add this complete `clear_capsules` function immediately before `load_level`:**
+
+```c
+static void clear_capsules(Game *game) // [!code ++]
+{ // [!code ++]
+    int i; // [!code ++]
+ // [!code ++]
+    for (i = 0; i < CAPSULE_COUNT; ++i) // [!code ++]
+    { // [!code ++]
+        game->capsules[i].x = 0; // [!code ++]
+        game->capsules[i].y = 0; // [!code ++]
+        game->capsules[i].active = 0; // [!code ++]
+    } // [!code ++]
+} // [!code ++]
 ```
 
-```diff
---- a/src/data.asm
-+++ b/src/data.asm
-@@ -7,6 +7,9 @@ After ball_tiles: add capsule_tiles
- 
- ball_tiles:
- .incbin "ball.pic"
-+
-+capsule_tiles:
-+.incbin "capsule.pic"
- 
- sprite_palette:
- .incbin "paddle.pal"
+The helper clears positions as well as active flags, avoiding dependence on startup RAM.
+
+**Goal:** Begin each level with no falling capsules and a fresh drop interval.
+
+<!-- tutorial-edit: {"file":"src/game.c","op":"diff-region","function":"load_level","context":3} -->
+**`src\game.c` — in `load_level`, apply these changes:**
+
+```c
+    game->bricks_left = 0;
+    game->state = STATE_READY;
+    game->hits = 0;
+    game->drops = 0; // [!code ++]
+    clear_capsules(game); // [!code ++]
+    i = 0;
+    for (row = 0; row < BRICK_ROWS; ++row)
+    {
 ```
+
+Both campaign reset and level advancement reuse this cleanup through `load_level`.
+
+**Goal:** Spawn a capsule from every fourth destroyed brick when a slot is available.
+
+<!-- tutorial-edit: {"file":"src/game.c","op":"add-function","name":"drop_capsule","before":"hit_brick"} -->
+**`src\game.c` — add this complete `drop_capsule` function immediately before `hit_brick`:**
+
+```c
+static void drop_capsule(Game *game, int row, int col) // [!code ++]
+{ // [!code ++]
+    int i; // [!code ++]
+ // [!code ++]
+    ++game->drops; // [!code ++]
+    if (game->drops % CAPSULE_INTERVAL != 0 || game->bricks_left == 0) // [!code ++]
+    { // [!code ++]
+        return; // [!code ++]
+    } // [!code ++]
+    for (i = 0; i < CAPSULE_COUNT; ++i) // [!code ++]
+    { // [!code ++]
+        if (!game->capsules[i].active) // [!code ++]
+        { // [!code ++]
+            game->capsules[i].x = // [!code ++]
+                BRICK_X + col * BRICK_WIDTH + (BRICK_WIDTH - CAPSULE_SIZE) / 2; // [!code ++]
+            game->capsules[i].y = BRICK_Y + row * BRICK_HEIGHT; // [!code ++]
+            game->capsules[i].active = 1; // [!code ++]
+            return; // [!code ++]
+        } // [!code ++]
+    } // [!code ++]
+} // [!code ++]
+```
+
+The helper skips the final brick and a full pool; a free capsule starts centered
+under its source brick.
+
+**Goal:** Move active capsules, collect paddle overlaps, and retire offscreen drops.
+
+<!-- tutorial-edit: {"file":"src/game.c","op":"add-function","name":"update_capsules","before":"hit_brick"} -->
+**`src\game.c` — add this complete `update_capsules` function immediately before `hit_brick`:**
+
+```c
+static void update_capsules(Game *game) // [!code ++]
+{ // [!code ++]
+    int i; // [!code ++]
+    Capsule *capsule; // [!code ++]
+ // [!code ++]
+    for (i = 0; i < CAPSULE_COUNT; ++i) // [!code ++]
+    { // [!code ++]
+        capsule = &game->capsules[i]; // [!code ++]
+        if (!capsule->active) // [!code ++]
+        { // [!code ++]
+            continue; // [!code ++]
+        } // [!code ++]
+        capsule->y += CAPSULE_SPEED; // [!code ++]
+        if (capsule->y < PADDLE_Y + PADDLE_HEIGHT && // [!code ++]
+            capsule->y + CAPSULE_SIZE > PADDLE_Y && // [!code ++]
+            capsule->x < game->paddle_x + PADDLE_WIDTH && // [!code ++]
+            capsule->x + CAPSULE_SIZE > game->paddle_x) // [!code ++]
+        { // [!code ++]
+            capsule->active = 0; // [!code ++]
+            game->hits |= HIT_CAPSULE; // [!code ++]
+        } // [!code ++]
+        else if (capsule->y >= FIELD_BOTTOM) // [!code ++]
+        { // [!code ++]
+            capsule->active = 0; // [!code ++]
+        } // [!code ++]
+    } // [!code ++]
+} // [!code ++]
+```
+
+Collection clears the active flag and sets `HIT_CAPSULE`; missed drops deactivate
+at the bottom of the field.
+
+**Goal:** Count and consider a drop only when a brick is actually destroyed.
+
+<!-- tutorial-edit: {"file":"src/game.c","op":"diff-region","function":"hit_brick","context":3} -->
+**`src\game.c` — in `hit_brick`, apply these changes:**
+
+```c
+                }
+                game->score += 10;
+                --game->bricks_left;
+                drop_capsule(game, row, col); // [!code ++]
+                if (game->bricks_left == 0)
+                {
+                    if (game->level + 1 == LEVEL_COUNT)
+```
+
+The call follows health reaching zero and the live-count decrement, not a damaging hit.
+
+**Goal:** Remove all falling objects when the level ends.
+
+<!-- tutorial-edit: {"file":"src/game.c","op":"diff-region","function":"hit_brick","context":3} -->
+**`src\game.c` — in `hit_brick`, apply these changes:**
+
+```c
+                drop_capsule(game, row, col);
+                if (game->bricks_left == 0)
+                {
+                    clear_capsules(game); // [!code ++]
+                    if (game->level + 1 == LEVEL_COUNT)
+                    {
+                        game->state = STATE_WON;
+                    }
+```
+
+Clearing at zero bricks prevents capsules from carrying into the interlude or victory.
+
+**Goal:** Clear falling capsules when a life is lost.
+
+<!-- tutorial-edit: {"file":"src/game.c","op":"diff-region","function":"lose_life","context":3} -->
+**`src\game.c` — in `lose_life`, apply these changes:**
+
+```c
+static void lose_life(Game *game)
+{
+    clear_capsules(game); // [!code ++]
+    --game->lives;
+    if (game->lives == 0)
+    {
+```
+
+Cleanup applies to both a replacement ball and final game over.
+
+**Goal:** Advance capsules once per active gameplay frame.
+
+<!-- tutorial-edit: {"file":"src/game.c","op":"diff-region","function":"game_tick","context":3} -->
+**`src\game.c` — in `game_tick`, apply these changes:**
+
+```c
+        return;
+    }
+
+    update_capsules(game); // [!code ++]
+    game->ball_fraction_x += magnitude(game->vx);
+    game->ball_fraction_y += magnitude(game->vy);
+    /* Spend sixteenths one pixel at a time, retaining the fractional part. */
+```
+
+
+
+The update runs only after ready and terminal-state returns, so capsules stop
+when normal gameplay stops.
+
+---
+
+### Open `src\main.c`
+
+**Goal:** Expose the capsule's ROM graphics to the sprite renderer.
+
+<!-- tutorial-edit: {"file":"src/main.c","op":"diff-region","scope_before":"prepare_bricks","context":3} -->
+**`src\main.c` — in file-scope declarations before `prepare_bricks`, apply these changes:**
+
+```c
+
+extern u8 paddle_tiles[];
+extern u8 ball_tiles[];
+extern u8 capsule_tiles[]; // [!code ++]
+extern u8 sprite_palette[];
+extern u8 backdrop_tiles[], backdrop_tiles_end[];
+extern u8 backdrop_map[];
+```
+
+The declaration matches the new assembly label for `capsule.pic`.
+
+**Goal:** Iterate through the fixed capsule pool while drawing sprites.
+
+<!-- tutorial-edit: {"file":"src/main.c","op":"diff-region","function":"draw_sprites","context":3} -->
+**`src\main.c` — in `draw_sprites`, apply these changes:**
+
+```c
+{
+    int paddle_frame;
+    int ball_frame;
+    int i; // [!code ++]
+
+    if (game.hits & HIT_PADDLE)
+    {
+```
+
+The local index visits all three slots without changing paddle or ball slot assignments.
+
+**Goal:** Draw only active capsules in reserved dynamic slots 5–7.
+
+<!-- tutorial-edit: {"file":"src/main.c","op":"diff-region","function":"draw_sprites","context":3} -->
+**`src\main.c` — in `draw_sprites`, apply these changes:**
+
+```c
+    oamMetaDrawDyn16(1, game.paddle_x, PADDLE_Y,
+                     (u8 *)paddle_frames[paddle_frame], paddle_tiles,
+                     OBJ_LARGE);
+    for (i = 0; i < CAPSULE_COUNT; ++i) // [!code ++]
+    { // [!code ++]
+        if (game.capsules[i].active) // [!code ++]
+        { // [!code ++]
+            oambuffer[5 + i].oamx = game.capsules[i].x; // [!code ++]
+            oambuffer[5 + i].oamy = game.capsules[i].y; // [!code ++]
+            oamDynamic8Draw(5 + i); // [!code ++]
+        } // [!code ++]
+    } // [!code ++]
+}
+```
+
+Inactive objects are not submitted, so the dynamic engine hides them at frame end.
+
+**Goal:** Give capsule collection a distinct sound.
+
+<!-- tutorial-edit: {"file":"src/main.c","op":"diff-region","function":"play_sounds","context":3} -->
+**`src\main.c` — in `play_sounds`, apply these changes:**
+
+```c
+    if (game.state != old_state)
+    {
+        if (game.state == STATE_PLAYING)
+        {
+            play_effect(SFX_PIANO, 4);
+        }
+        else if (game.state == STATE_GAME_OVER)
+        {
+            spcStop();
+            play_effect(SFX_STRINGS, 2);
+        }
+        else if (game.state == STATE_WON)
+        {
+            spcStop();
+            play_effect(SFX_TADA, 4);
+        }
+        else if (game.state == STATE_LEVEL_CLEAR)
+        {
+            play_effect(SFX_TADA, 4);
+        }
+        else if (old_state == STATE_PLAYING)
+        {
+            play_effect(SFX_STRINGS, 3);
+        }
+    }
+    else if (game.hits & HIT_CAPSULE) // [!code ++]
+    { // [!code ++]
+        play_effect(SFX_PIANO, 6); // [!code ++]
+    } // [!code ++]
+    else if (game.hits & HIT_BRICK)
+    {
+        play_effect(SFX_COWBELL, 4);
+```
+
+The collection flag selects a higher-pitched piano effect after state-transition sounds.
+
+**Goal:** Initialize capsule slots as small sprites using their shared-palette artwork.
+
+<!-- tutorial-edit: {"file":"src/main.c","op":"diff-region","function":"init_video","context":3} -->
+**`src\main.c` — in `init_video`, apply these changes:**
+
+```c
+    ball_glimmer = 0;
+    shown_paddle_frame = -1;
+    init_sprite(0, ball_tiles, 0, OBJ_SIZES);
+    for (i = 0; i < CAPSULE_COUNT; ++i) // [!code ++]
+    { // [!code ++]
+        init_sprite(5 + i, capsule_tiles, 0, OBJ_SIZES); // [!code ++]
+    } // [!code ++]
+
+    setMode(BG_MODE1, 0);
+    init_gradient();
+```
+
+
+
+The three slots all use capsule frame 0 and the already loaded sprite palette.
+
+---
+
+### Open `Makefile`
+
+**Goal:** Convert the capsule artwork while preserving its palette indices.
+
+<!-- tutorial-edit: {"file":"Makefile","op":"diff-region","context":3} -->
+**`Makefile` — in the file, apply these changes:**
+
+```make
+ball.pic: ball.png
+	$(GFXCONV) -s 8 -R -o 16 -u 16 -p -t png -i $<
+
+capsule.pic: capsule.png # [!code ++]
+	$(GFXCONV) -s 8 -R -o 16 -u 16 -p -t png -i $< # [!code ++]
+ # [!code ++]
+playfield.pic: playfield.png
+	$(GFXCONV) -s 8 -o 16 -u 16 -e 2 -p -m -t png -i $<
+
+```
+
+The options retain the eight-pixel tile layout and the shared sixteen-color palette.
+
+**Goal:** Generate capsule graphics before assembling the game's asset object.
+
+<!-- tutorial-edit: {"file":"Makefile","op":"diff-region","context":3} -->
+**`Makefile` — in the file, apply these changes:**
+
+```make
+title-logo.pic: title-logo.png
+	$(GFXCONV) -s 8 -o 64 -u 16 -e 3 -p -m -t png -i $<
+
+src/data.obj: paddle.pic ball.pic playfield.pic backdrop.pic title-logo.pic # [!code --]
+src/data.obj: paddle.pic ball.pic capsule.pic playfield.pic backdrop.pic title-logo.pic # [!code ++]
+src/main.obj src/game.obj: src/game.h
+
+clean: cleanBuildRes cleanRom cleanGfx cleanAudio
+```
+
+
+
+---
+
+### Open `src\data.asm`
+
+Adding `capsule.pic` to the dependency ensures its binary exists for `.incbin`.
+
+**Goal:** Include the converted capsule tile in the ROM.
+
+<!-- tutorial-edit: {"file":"src/data.asm","op":"diff-region","context":3} -->
+**`src\data.asm` — in the file, apply these changes:**
+
+```asm
+ball_tiles:
+.incbin "ball.pic"
+
+capsule_tiles: ; [!code ++]
+.incbin "capsule.pic" ; [!code ++]
+ ; [!code ++]
+sprite_palette:
+.incbin "paddle.pal"
+
+```
+
+The new label gives dynamic sprite initialization access to the capsule's graphics.
 
 **Checkpoint:** Build and run. Destroy four bricks: a small capsule drops
 from the fourth. Catch it to hear the collection sound; at this stage the
@@ -1328,260 +2097,506 @@ width check, the new fourth piece can retain the wrong tiles when the paddle
 grows without an animation change. When shrinking, the dynamic engine hides
 the unused fourth slot.
 
+---
+
+### Open `src\game.h`
+
 Add a small `WIDE` status label on text row 3. Include that row in `clear_text`
 so it cannot remain on the title. Here are all the edits:
 
-```diff
---- a/src/game.h
-+++ b/src/game.h
-@@ -10,6 +10,8 @@ File-scope constants: after PADDLE_WIDTH
- #define BALL_SUBSTEPS 3
- #define BALL_UNIT 16
- #define PADDLE_WIDTH 48
-+#define WIDE_PADDLE_WIDTH 64
-+#define WIDE_FRAMES 600
- #define PADDLE_HEIGHT 8
- #define PADDLE_Y 200
- #define PADDLE_SPEED 3
-@@ -61,6 +63,8 @@ struct Game
-     int ball_fraction_x;
-     int ball_fraction_y;
-     int drops;
-+    int paddle_width;
-+    int wide_ticks;
-     Capsule capsules[CAPSULE_COUNT];
-     unsigned char bricks[BRICK_COUNT];
- } Game;
+**Goal:** Define the wide paddle's sixty-four-pixel width and six-hundred-frame duration.
+
+<!-- tutorial-edit: {"file":"src/game.h","op":"diff-region","context":3} -->
+**`src\game.h` — in the file, apply these changes:**
+
+```c
+#define FIELD_TOP    32
+#define FIELD_BOTTOM 224
+
+#define BALL_SIZE     8 // [!code --]
+#define BALL_SIZE         8 // [!code ++]
+#define BALL_SUBSTEPS 3 // [!code --]
+#define BALL_SUBSTEPS     3 // [!code ++]
+#define BALL_UNIT     16 // [!code --]
+#define BALL_UNIT         16 // [!code ++]
+#define PADDLE_WIDTH  48 // [!code --]
+#define PADDLE_WIDTH      48 // [!code ++]
+#define WIDE_PADDLE_WIDTH 64 // [!code ++]
+#define WIDE_FRAMES       600 // [!code ++]
+#define PADDLE_HEIGHT 8 // [!code --]
+#define PADDLE_HEIGHT     8 // [!code ++]
+#define PADDLE_Y      200 // [!code --]
+#define PADDLE_Y          200 // [!code ++]
+#define PADDLE_SPEED  3 // [!code --]
+#define PADDLE_SPEED      3 // [!code ++]
+
+#define BRICK_COLS   14
+#define BRICK_ROWS   5
 ```
 
-```diff
---- a/src/game.c
-+++ b/src/game.c
-@@ -33,7 +33,7 @@ static void attach_ball(Game *game)
- 
- static void attach_ball(Game *game)
- {
--    game->ball_x = game->paddle_x + (PADDLE_WIDTH - BALL_SIZE) / 2;
-+    game->ball_x = game->paddle_x + (game->paddle_width - BALL_SIZE) / 2;
-     game->ball_y = PADDLE_Y - BALL_SIZE;
-     game->vx = BALL_UNIT;
-     game->vy = -3 * BALL_UNIT;
-@@ -59,6 +59,8 @@ static void load_level(Game *game)
-     int i;
- 
-     game->paddle_x = (FIELD_LEFT + FIELD_RIGHT - PADDLE_WIDTH) / 2;
-+    game->paddle_width = PADDLE_WIDTH;
-+    game->wide_ticks = 0;
-     game->bricks_left = 0;
-     game->state = STATE_READY;
-     game->hits = 0;
-@@ -110,6 +112,16 @@ Between drop_capsule and update_capsules: add resize_paddle
-     }
- }
- 
-+static void resize_paddle(Game *game, int width)
-+{
-+    game->paddle_x -= (width - game->paddle_width) / 2;
-+    game->paddle_width = width;
-+    if (game->paddle_x < FIELD_LEFT)
-+        game->paddle_x = FIELD_LEFT;
-+    if (game->paddle_x + width > FIELD_RIGHT)
-+        game->paddle_x = FIELD_RIGHT - width;
-+}
-+
- static void update_capsules(Game *game)
- {
-     int i;
-@@ -122,10 +134,12 @@ static void update_capsules(Game *game)
-         capsule->y += CAPSULE_SPEED;
-         if (capsule->y < PADDLE_Y + PADDLE_HEIGHT &&
-             capsule->y + CAPSULE_SIZE > PADDLE_Y &&
--            capsule->x < game->paddle_x + PADDLE_WIDTH &&
-+            capsule->x < game->paddle_x + game->paddle_width &&
-             capsule->x + CAPSULE_SIZE > game->paddle_x) {
-             capsule->active = 0;
-             game->hits |= HIT_CAPSULE;
-+            resize_paddle(game, WIDE_PADDLE_WIDTH);
-+            game->wide_ticks = WIDE_FRAMES;
-         } else if (capsule->y >= FIELD_BOTTOM) {
-             capsule->active = 0;
-         }
-@@ -204,16 +218,16 @@ static void paddle_bounce(Game *game)
-     int hit_position;
- 
-     hit_position = game->ball_x + BALL_SIZE / 2 - game->paddle_x;
--    if (hit_position < PADDLE_WIDTH / 5) {
-+    if (hit_position < game->paddle_width / 5) {
-         game->vx = -40;
-         game->vy = -24;
--    } else if (hit_position < 2 * PADDLE_WIDTH / 5) {
-+    } else if (hit_position < 2 * game->paddle_width / 5) {
-         game->vx = -24;
-         game->vy = -40;
--    } else if (hit_position < 3 * PADDLE_WIDTH / 5) {
-+    } else if (hit_position < 3 * game->paddle_width / 5) {
-         game->vx = game->vx < 0 ? -8 : 8;
-         game->vy = -48;
--    } else if (hit_position < 4 * PADDLE_WIDTH / 5) {
-+    } else if (hit_position < 4 * game->paddle_width / 5) {
-         game->vx = 24;
-         game->vy = -40;
-     } else {
-@@ -236,7 +250,7 @@ static void move_ball_y(Game *game)
-                game->ball_y + BALL_SIZE <= PADDLE_Y &&
-                next_y + BALL_SIZE > PADDLE_Y &&
-                game->ball_x + BALL_SIZE > game->paddle_x &&
--               game->ball_x < game->paddle_x + PADDLE_WIDTH) {
-+               game->ball_x < game->paddle_x + game->paddle_width) {
-         game->hits |= HIT_PADDLE;
-         game->ball_y = PADDLE_Y - BALL_SIZE;
-         paddle_bounce(game);
-@@ -250,6 +264,8 @@ static void lose_life(Game *game)
- static void lose_life(Game *game)
- {
-     clear_capsules(game);
-+    resize_paddle(game, PADDLE_WIDTH);
-+    game->wide_ticks = 0;
-     --game->lives;
-     if (game->lives == 0) {
-         game->state = STATE_GAME_OVER;
-@@ -266,8 +282,8 @@ void game_move_paddle(Game *game, int dx)
-     game->paddle_x += dx;
-     if (game->paddle_x < FIELD_LEFT)
-         game->paddle_x = FIELD_LEFT;
--    if (game->paddle_x + PADDLE_WIDTH > FIELD_RIGHT)
--        game->paddle_x = FIELD_RIGHT - PADDLE_WIDTH;
-+    if (game->paddle_x + game->paddle_width > FIELD_RIGHT)
-+        game->paddle_x = FIELD_RIGHT - game->paddle_width;
- }
- 
- void game_tick(Game *game, int movement, int action_pressed)
-@@ -295,6 +311,11 @@ void game_tick(Game *game, int movement, int action_pressed)
-         return;
-     }
- 
-+    if (game->wide_ticks > 0) {
-+        --game->wide_ticks;
-+        if (game->wide_ticks == 0)
-+            resize_paddle(game, PADDLE_WIDTH);
-+    }
-     update_capsules(game);
-     game->ball_fraction_x += magnitude(game->vx);
-     game->ball_fraction_y += magnitude(game->vy);
+The normal width remains the reset size; only the power-up uses the wider constant.
+
+**Goal:** Track the actual paddle width and remaining power-up time.
+
+<!-- tutorial-edit: {"file":"src/game.h","op":"diff-region","context":3} -->
+**`src\game.h` — in the file, apply these changes:**
+
+```c
+    int ball_fraction_x;
+    int ball_fraction_y;
+    int drops;
+    int paddle_width; // [!code ++]
+    int wide_ticks; // [!code ++]
+    Capsule capsules[CAPSULE_COUNT];
+    unsigned char bricks[BRICK_COUNT];
+} Game;
 ```
 
-```diff
---- a/src/main.c
-+++ b/src/main.c
-@@ -25,6 +25,12 @@ File-scope macros: add WIDE_PIECES after PADDLE_PIECES
-     METASPR_ITEM(0, 0, (frame), PADDLE_ATTR),      \
-     METASPR_ITEM(16, 0, 8 + (frame), PADDLE_ATTR), \
-     METASPR_ITEM(32, 0, 16 + (frame), PADDLE_ATTR), \
-+    METASPR_TERM
-+#define WIDE_PIECES(frame)                         \
-+    METASPR_ITEM(0, 0, (frame), PADDLE_ATTR),       \
-+    METASPR_ITEM(16, 0, 8 + (frame), PADDLE_ATTR),  \
-+    METASPR_ITEM(32, 0, 8 + (frame), PADDLE_ATTR),  \
-+    METASPR_ITEM(48, 0, 16 + (frame), PADDLE_ATTR), \
-     METASPR_TERM
- 
- #define SFX_TADA 0
-@@ -70,6 +76,18 @@ File scope: add wide metasprite tables after paddle_frames
- const t_metasprite *paddle_frames[GLIMMER_FRAMES + 1] = {
-     paddle_frame0, paddle_frame1, paddle_frame2,
-     paddle_frame3, paddle_frame4, paddle_frame5
-+};
-+
-+const t_metasprite wide_frame0[] = { WIDE_PIECES(0) };
-+const t_metasprite wide_frame1[] = { WIDE_PIECES(1) };
-+const t_metasprite wide_frame2[] = { WIDE_PIECES(2) };
-+const t_metasprite wide_frame3[] = { WIDE_PIECES(3) };
-+const t_metasprite wide_frame4[] = { WIDE_PIECES(4) };
-+const t_metasprite wide_frame5[] = { WIDE_PIECES(5) };
-+
-+const t_metasprite *wide_frames[GLIMMER_FRAMES + 1] = {
-+    wide_frame0, wide_frame1, wide_frame2,
-+    wide_frame3, wide_frame4, wide_frame5
- };
- 
- Game game;
-@@ -90,6 +108,8 @@ File-scope variables: after shown_paddle_frame
- static int paddle_glimmer;
- static int ball_glimmer;
- static int shown_paddle_frame;
-+static int shown_paddle_width;
-+static int shown_wide = -1;
- static int screen;
- static int next_screen;
- static int brightness;
-@@ -178,6 +198,10 @@ static void draw_text(void)
-         consoleDrawText(26, 1, level_text);
-         shown_level = game.level;
-     }
-+    if (shown_wide != (game.wide_ticks > 0)) {
-+        consoleDrawText(14, 3, game.wide_ticks > 0 ? "WIDE" : "    ");
-+        shown_wide = game.wide_ticks > 0;
-+    }
- 
-     if (entrance_offset != 0)
-         return;
-@@ -229,6 +253,7 @@ static void draw_sprites(void)
-     int paddle_frame;
-     int ball_frame;
-     int i;
-+    const t_metasprite *paddle;
- 
-     if (game.hits & HIT_PADDLE)
-         paddle_glimmer = GLIMMER_FRAMES * GLIMMER_TICKS;
-@@ -242,12 +267,18 @@ static void draw_sprites(void)
-     show_frame(0, ball_frame);
-     oamDynamic8Draw(0);
- 
--    if (shown_paddle_frame != paddle_frame) {
-+    if (shown_paddle_frame != paddle_frame ||
-+        shown_paddle_width != game.paddle_width) {
-         shown_paddle_frame = paddle_frame;
-+        shown_paddle_width = game.paddle_width;
-         oambuffer[1].oamrefresh = 1;
-     }
-+    if (game.paddle_width == WIDE_PADDLE_WIDTH)
-+        paddle = wide_frames[paddle_frame];
-+    else
-+        paddle = paddle_frames[paddle_frame];
-     oamMetaDrawDyn16(1, game.paddle_x, PADDLE_Y,
--                     (u8 *)paddle_frames[paddle_frame], paddle_tiles,
-+                     (u8 *)paddle, paddle_tiles,
-                      OBJ_LARGE);
-     for (i = 0; i < CAPSULE_COUNT; ++i) {
-         if (game.capsules[i].active) {
-@@ -390,6 +421,7 @@ static void init_video(void)
-     paddle_glimmer = 0;
-     ball_glimmer = 0;
-     shown_paddle_frame = -1;
-+    shown_paddle_width = -1;
-     init_sprite(0, ball_tiles, 0, OBJ_SIZES);
-     for (i = 0; i < CAPSULE_COUNT; ++i)
-         init_sprite(5 + i, capsule_tiles, 0, OBJ_SIZES);
-@@ -413,6 +445,7 @@ static void clear_text(void)
- 
-     /* consoleDrawText is slow, so only clear the rows we write to. */
-     consoleDrawText(0, 1, "                                ");
-+    consoleDrawText(0, 3, "                                ");
-     for (row = 8; row <= 24; row += 2)
-         consoleDrawText(0, row, "                                ");
- }
-@@ -462,6 +495,7 @@ static void show_game(int advance)
-     shown_lives = -1;
-     shown_state = -1;
-     shown_level = -1;
-+    shown_wide = -1;
-     consoleDrawText(2, 1, "SCORE       LIVES     LV");
-     draw_text();
- }
+
+
+These runtime fields keep drawing, collisions, and expiration tied to the same width.
+
+---
+
+### Open `src\game.c`
+
+**Goal:** Center an attached ball over either paddle width.
+
+<!-- tutorial-edit: {"file":"src/game.c","op":"diff-region","function":"attach_ball","context":3} -->
+**`src\game.c` — in `attach_ball`, apply these changes:**
+
+```c
+static void attach_ball(Game *game)
+{
+    game->ball_x = game->paddle_x + (PADDLE_WIDTH - BALL_SIZE) / 2; // [!code --]
+    game->ball_x = game->paddle_x + (game->paddle_width - BALL_SIZE) / 2; // [!code ++]
+    game->ball_y = PADDLE_Y - BALL_SIZE;
+    game->vx = BALL_UNIT;
+    game->vy = -3 * BALL_UNIT;
 ```
+
+Attachment now calculates its offset from `paddle_width`, not the normal-width constant.
+
+**Goal:** Start each level with a normal-width paddle and no active power-up.
+
+<!-- tutorial-edit: {"file":"src/game.c","op":"diff-region","function":"load_level","context":3} -->
+**`src\game.c` — in `load_level`, apply these changes:**
+
+```c
+    int i;
+
+    game->paddle_x = (FIELD_LEFT + FIELD_RIGHT - PADDLE_WIDTH) / 2;
+    game->paddle_width = PADDLE_WIDTH; // [!code ++]
+    game->wide_ticks = 0; // [!code ++]
+    game->bricks_left = 0;
+    game->state = STATE_READY;
+    game->hits = 0;
+```
+
+Initialization occurs before attachment so the centering calculation uses a valid width.
+
+**Goal:** Resize around the paddle's center while keeping both ends within the field.
+
+<!-- tutorial-edit: {"file":"src/game.c","op":"add-function","name":"resize_paddle","before":"update_capsules"} -->
+**`src\game.c` — add this complete `resize_paddle` function immediately before `update_capsules`:**
+
+```c
+static void resize_paddle(Game *game, int width) // [!code ++]
+{ // [!code ++]
+    game->paddle_x -= (width - game->paddle_width) / 2; // [!code ++]
+    game->paddle_width = width; // [!code ++]
+    if (game->paddle_x < FIELD_LEFT) // [!code ++]
+    { // [!code ++]
+        game->paddle_x = FIELD_LEFT; // [!code ++]
+    } // [!code ++]
+    if (game->paddle_x + width > FIELD_RIGHT) // [!code ++]
+    { // [!code ++]
+        game->paddle_x = FIELD_RIGHT - width; // [!code ++]
+    } // [!code ++]
+} // [!code ++]
+```
+
+Half the width difference adjusts X; wall clamps handle cases where the old center
+cannot be preserved.
+
+**Goal:** Allow capsules to be caught by the paddle's wider right edge.
+
+<!-- tutorial-edit: {"file":"src/game.c","op":"diff-region","function":"update_capsules","context":3} -->
+**`src\game.c` — in `update_capsules`, apply these changes:**
+
+```c
+        capsule->y += CAPSULE_SPEED;
+        if (capsule->y < PADDLE_Y + PADDLE_HEIGHT &&
+            capsule->y + CAPSULE_SIZE > PADDLE_Y &&
+            capsule->x < game->paddle_x + PADDLE_WIDTH && // [!code --]
+            capsule->x < game->paddle_x + game->paddle_width && // [!code ++]
+            capsule->x + CAPSULE_SIZE > game->paddle_x)
+        {
+            capsule->active = 0;
+```
+
+The horizontal overlap test now uses the actual runtime width.
+
+**Goal:** Widen the paddle on collection and refresh the full power-up duration.
+
+<!-- tutorial-edit: {"file":"src/game.c","op":"diff-region","function":"update_capsules","context":3} -->
+**`src\game.c` — in `update_capsules`, apply these changes:**
+
+```c
+        {
+            capsule->active = 0;
+            game->hits |= HIT_CAPSULE;
+            resize_paddle(game, WIDE_PADDLE_WIDTH); // [!code ++]
+            game->wide_ticks = WIDE_FRAMES; // [!code ++]
+        }
+        else if (capsule->y >= FIELD_BOTTOM)
+        {
+```
+
+Every pickup sets the same target width and resets the timer rather than stacking widths.
+
+**Goal:** Scale the two left-side rebound zones to the current paddle width.
+
+<!-- tutorial-edit: {"file":"src/game.c","op":"diff-region","function":"paddle_bounce","context":3} -->
+**`src\game.c` — in `paddle_bounce`, apply these changes:**
+
+```c
+    int hit_position;
+
+    hit_position = game->ball_x + BALL_SIZE / 2 - game->paddle_x;
+    if (hit_position < PADDLE_WIDTH / 5) // [!code --]
+    if (hit_position < game->paddle_width / 5) // [!code ++]
+    {
+        game->vx = -40;
+        game->vy = -24;
+    }
+    else if (hit_position < 2 * PADDLE_WIDTH / 5) // [!code --]
+    else if (hit_position < 2 * game->paddle_width / 5) // [!code ++]
+    {
+        game->vx = -24;
+        game->vy = -40;
+```
+
+The leftmost boundaries now use one and two fifths of the runtime width.
+
+**Goal:** Keep the shallow center rebound centered on either paddle size.
+
+<!-- tutorial-edit: {"file":"src/game.c","op":"diff-region","function":"paddle_bounce","context":3} -->
+**`src\game.c` — in `paddle_bounce`, apply these changes:**
+
+```c
+        game->vx = -24;
+        game->vy = -40;
+    }
+    else if (hit_position < 3 * PADDLE_WIDTH / 5) // [!code --]
+    else if (hit_position < 3 * game->paddle_width / 5) // [!code ++]
+    {
+        game->vx = game->vx < 0 ? -8 : 8;
+        game->vy = -48;
+```
+
+The middle zone ends at three fifths of the actual width.
+
+**Goal:** Scale the intermediate right-side zone before the outer-edge rebound.
+
+<!-- tutorial-edit: {"file":"src/game.c","op":"diff-region","function":"paddle_bounce","context":3} -->
+**`src\game.c` — in `paddle_bounce`, apply these changes:**
+
+```c
+        game->vx = game->vx < 0 ? -8 : 8;
+        game->vy = -48;
+    }
+    else if (hit_position < 4 * PADDLE_WIDTH / 5) // [!code --]
+    else if (hit_position < 4 * game->paddle_width / 5) // [!code ++]
+    {
+        game->vx = 24;
+        game->vy = -40;
+```
+
+The four-fifths boundary preserves the same five proportional zones when widened.
+
+**Goal:** Let the extra paddle piece collide with descending balls.
+
+<!-- tutorial-edit: {"file":"src/game.c","op":"diff-region","function":"move_ball_y","context":3} -->
+**`src\game.c` — in `move_ball_y`, apply these changes:**
+
+```c
+    else if (game->vy > 0 && game->ball_y + BALL_SIZE <= PADDLE_Y &&
+             next_y + BALL_SIZE > PADDLE_Y &&
+             game->ball_x + BALL_SIZE > game->paddle_x &&
+             game->ball_x < game->paddle_x + PADDLE_WIDTH) // [!code --]
+             game->ball_x < game->paddle_x + game->paddle_width) // [!code ++]
+    {
+        game->hits |= HIT_PADDLE;
+        game->ball_y = PADDLE_Y - BALL_SIZE;
+```
+
+The top-contact test now extends to the actual right edge of the paddle.
+
+**Goal:** Cancel the wide power-up when a life is lost.
+
+<!-- tutorial-edit: {"file":"src/game.c","op":"diff-region","function":"lose_life","context":3} -->
+**`src\game.c` — in `lose_life`, apply these changes:**
+
+```c
+static void lose_life(Game *game)
+{
+    clear_capsules(game);
+    resize_paddle(game, PADDLE_WIDTH); // [!code ++]
+    game->wide_ticks = 0; // [!code ++]
+    --game->lives;
+    if (game->lives == 0)
+    {
+```
+
+Resizing restores normal collision geometry and clears the timer before a ball reattaches.
+
+**Goal:** Clamp either paddle size at the right wall for controller and mouse movement.
+
+<!-- tutorial-edit: {"file":"src/game.c","op":"diff-region","function":"game_move_paddle","context":3} -->
+**`src\game.c` — in `game_move_paddle`, apply these changes:**
+
+```c
+    {
+        game->paddle_x = FIELD_LEFT;
+    }
+    if (game->paddle_x + PADDLE_WIDTH > FIELD_RIGHT) // [!code --]
+    if (game->paddle_x + game->paddle_width > FIELD_RIGHT) // [!code ++]
+    {
+        game->paddle_x = FIELD_RIGHT - PADDLE_WIDTH; // [!code --]
+        game->paddle_x = FIELD_RIGHT - game->paddle_width; // [!code ++]
+    }
+}
+```
+
+Both the edge test and corrected X position use `paddle_width`, preventing overhang.
+
+**Goal:** Spend power-up time only during play and shrink exactly when it expires.
+
+<!-- tutorial-edit: {"file":"src/game.c","op":"diff-region","function":"game_tick","context":3} -->
+**`src\game.c` — in `game_tick`, apply these changes:**
+
+```c
+        return;
+    }
+
+    if (game->wide_ticks > 0) // [!code ++]
+    { // [!code ++]
+        --game->wide_ticks; // [!code ++]
+        if (game->wide_ticks == 0) // [!code ++]
+        { // [!code ++]
+            resize_paddle(game, PADDLE_WIDTH); // [!code ++]
+        } // [!code ++]
+    } // [!code ++]
+    update_capsules(game);
+    game->ball_fraction_x += magnitude(game->vx);
+    game->ball_fraction_y += magnitude(game->vy);
+```
+
+
+
+The timer runs after nonplaying-state returns; zero triggers a single resize back to normal.
+
+---
+
+### Open `src\main.c`
+
+**Goal:** Describe a wide paddle by repeating the existing middle sprite piece.
+
+<!-- tutorial-edit: {"file":"src/main.c","op":"diff-region","scope_before":"prepare_bricks","context":3} -->
+**`src\main.c` — in file-scope declarations before `prepare_bricks`, apply these changes:**
+
+```c
+    METASPR_ITEM(0, 0, (frame), PADDLE_ATTR),                                  \
+        METASPR_ITEM(16, 0, 8 + (frame), PADDLE_ATTR),                         \
+        METASPR_ITEM(32, 0, 16 + (frame), PADDLE_ATTR), METASPR_TERM
+#define WIDE_PIECES(frame)                                                     \ // [!code ++]
+    METASPR_ITEM(0, 0, (frame), PADDLE_ATTR),                                  \ // [!code ++]
+        METASPR_ITEM(16, 0, 8 + (frame), PADDLE_ATTR),                         \ // [!code ++]
+        METASPR_ITEM(32, 0, 8 + (frame), PADDLE_ATTR),                         \ // [!code ++]
+        METASPR_ITEM(48, 0, 16 + (frame), PADDLE_ATTR), METASPR_TERM // [!code ++]
+
+#define SFX_TADA    0
+#define SFX_STRINGS 1
+```
+
+Offsets 0, 16, 32, and 48 assemble four pieces without new artwork.
+
+**Goal:** Provide a wide metasprite for each normal and glimmer animation frame.
+
+<!-- tutorial-edit: {"file":"src/main.c","op":"diff-region","scope_before":"prepare_bricks","context":3} -->
+**`src\main.c` — in file-scope declarations before `prepare_bricks`, apply these changes:**
+
+```c
+    paddle_frame0, paddle_frame1, paddle_frame2,
+    paddle_frame3, paddle_frame4, paddle_frame5};
+
+const t_metasprite wide_frame0[] = {WIDE_PIECES(0)}; // [!code ++]
+const t_metasprite wide_frame1[] = {WIDE_PIECES(1)}; // [!code ++]
+const t_metasprite wide_frame2[] = {WIDE_PIECES(2)}; // [!code ++]
+const t_metasprite wide_frame3[] = {WIDE_PIECES(3)}; // [!code ++]
+const t_metasprite wide_frame4[] = {WIDE_PIECES(4)}; // [!code ++]
+const t_metasprite wide_frame5[] = {WIDE_PIECES(5)}; // [!code ++]
+ // [!code ++]
+const t_metasprite *wide_frames[GLIMMER_FRAMES + 1] = { // [!code ++]
+    wide_frame0, wide_frame1, wide_frame2, // [!code ++]
+    wide_frame3, wide_frame4, wide_frame5}; // [!code ++]
+ // [!code ++]
+Game game;
+
+static u16 brick_map[BRICK_ROWS][BRICK_COLS * 2];
+```
+
+The second pointer table mirrors the normal paddle's six animation phases.
+
+**Goal:** Track width changes for sprite refreshes and power-up status text.
+
+<!-- tutorial-edit: {"file":"src/main.c","op":"diff-region","scope_before":"prepare_bricks","context":3} -->
+**`src\main.c` — in file-scope declarations before `prepare_bricks`, apply these changes:**
+
+```c
+static int paddle_glimmer;
+static int ball_glimmer;
+static int shown_paddle_frame;
+static int shown_paddle_width; // [!code ++]
+static int shown_wide = -1; // [!code ++]
+static int screen;
+static int next_screen;
+static int brightness;
+```
+
+One cache records rendered geometry; the other records whether `WIDE` is displayed.
+
+**Goal:** Show the power-up label only while its timer is active.
+
+<!-- tutorial-edit: {"file":"src/main.c","op":"diff-region","function":"draw_text","context":3} -->
+**`src\main.c` — in `draw_text`, apply these changes:**
+
+```c
+    if (shown_level != game.level)
+    {
+        level_text[0] = '1' + game.level;
+        consoleDrawText(26, 1, level_text);
+        shown_level = game.level;
+    }
+    if (shown_wide != (game.wide_ticks > 0)) // [!code ++]
+    { // [!code ++]
+        consoleDrawText(14, 3, game.wide_ticks > 0 ? "WIDE" : "    "); // [!code ++]
+        shown_wide = game.wide_ticks > 0; // [!code ++]
+    } // [!code ++]
+
+    if (entrance_offset != 0)
+    {
+```
+
+The label uses row 3 and erases itself with spaces when the effect ends.
+
+**Goal:** Select a paddle metasprite from either the normal or wide table.
+
+<!-- tutorial-edit: {"file":"src/main.c","op":"diff-region","function":"draw_sprites","context":3} -->
+**`src\main.c` — in `draw_sprites`, apply these changes:**
+
+```c
+    int paddle_frame;
+    int ball_frame;
+    int i;
+    const t_metasprite *paddle; // [!code ++]
+
+    if (game.hits & HIT_PADDLE)
+    {
+```
+
+The local pointer holds the complete piece list chosen for this frame.
+
+**Goal:** Refresh graphics when width or animation changes and draw the selected shape.
+
+<!-- tutorial-edit: {"file":"src/main.c","op":"diff-region","function":"draw_sprites","context":3} -->
+**`src\main.c` — in `draw_sprites`, apply these changes:**
+
+```c
+    show_frame(0, ball_frame);
+    oamDynamic8Draw(0);
+
+    if (shown_paddle_frame != paddle_frame) // [!code --]
+    if (shown_paddle_frame != paddle_frame || // [!code ++]
+        shown_paddle_width != game.paddle_width) // [!code ++]
+    {
+        shown_paddle_frame = paddle_frame;
+        shown_paddle_width = game.paddle_width; // [!code ++]
+        oambuffer[1].oamrefresh = 1;
+    }
+    if (game.paddle_width == WIDE_PADDLE_WIDTH) // [!code ++]
+    { // [!code ++]
+        paddle = wide_frames[paddle_frame]; // [!code ++]
+    } // [!code ++]
+    else // [!code ++]
+    { // [!code ++]
+        paddle = paddle_frames[paddle_frame]; // [!code ++]
+    } // [!code ++]
+    oamMetaDrawDyn16(1, game.paddle_x, PADDLE_Y, // [!code --]
+    oamMetaDrawDyn16(1, game.paddle_x, PADDLE_Y, (u8 *)paddle, paddle_tiles, // [!code ++]
+                     (u8 *)paddle_frames[paddle_frame], paddle_tiles, // [!code --]
+                     OBJ_LARGE);
+    for (i = 0; i < CAPSULE_COUNT; ++i)
+    {
+```
+
+The width check refreshes the new fourth piece even without an animation change.
+The dynamic engine hides that slot again when the selected list shrinks.
+
+**Goal:** Force the paddle's first width-dependent graphics refresh.
+
+<!-- tutorial-edit: {"file":"src/main.c","op":"diff-region","function":"init_video","context":3} -->
+**`src\main.c` — in `init_video`, apply these changes:**
+
+```c
+    paddle_glimmer = 0;
+    ball_glimmer = 0;
+    shown_paddle_frame = -1;
+    shown_paddle_width = -1; // [!code ++]
+    init_sprite(0, ball_tiles, 0, OBJ_SIZES);
+    for (i = 0; i < CAPSULE_COUNT; ++i)
+    {
+```
+
+The -1 width cache cannot match either valid paddle size on the first draw.
+
+**Goal:** Remove the power-up label when changing screens.
+
+<!-- tutorial-edit: {"file":"src/main.c","op":"diff-region","function":"clear_text","context":3} -->
+**`src\main.c` — in `clear_text`, apply these changes:**
+
+```c
+
+    /* consoleDrawText is slow, so only clear the rows we write to. */
+    consoleDrawText(0, 1, "                                ");
+    consoleDrawText(0, 3, "                                "); // [!code ++]
+    for (row = 8; row <= 24; row += 2)
+    {
+        consoleDrawText(0, row, "                                ");
+```
+
+Clearing row 3 prevents `WIDE` from lingering on the title.
+
+**Goal:** Redraw power-up status when entering a fresh level or campaign.
+
+<!-- tutorial-edit: {"file":"src/main.c","op":"diff-region","function":"show_game","context":3} -->
+**`src\main.c` — in `show_game`, apply these changes:**
+
+```c
+    shown_lives = -1;
+    shown_state = -1;
+    shown_level = -1;
+    shown_wide = -1; // [!code ++]
+    consoleDrawText(2, 1, "SCORE       LIVES     LV");
+    draw_text();
+}
+```
+
+Resetting the status cache forces the next HUD update to match the new gameplay state.
 
 **Checkpoint:** Build and run. Catch a capsule: the paddle grows to four
-pieces and `WIDE` appears. Its new outer portion catches the ball. Move to
+pieces and `WIDE` appears. The ball bounces off its new outer portion. Move to
 both walls: no piece extends through them. Pause for several seconds and
 resume: the effect has not expired while paused. After 600 active frames it
 shrinks cleanly. Collecting another capsule refreshes the duration. Losing a
@@ -1589,62 +2604,8 @@ life or entering the next level restores three pieces and removes `WIDE`.
 
 ![Part 4 after section 7: a four-piece wide paddle](screenshots/part4-section7-wide.png)
 
----
-
-## 8. Test the finished game
-
-Your project has the same files as at the end of Part 3, plus `capsule.png`.
-No new C source file or music module is needed. Make a clean build:
-
-```sh
-make clean
-make
-```
-
-Test in this order:
-
-1. **Title:** the stars scroll, but the logo and five-digit high score do not.
-2. **Entrance:** Start fades out, the playfield rises from blank, and the HUD
-   stays put. Pressing launch during the entrance does not launch the ball.
-3. **Level 1:** 56 occupied cells, including a two-hit top row. A damaging hit
-   changes appearance but does not score. Destruction awards ten points.
-4. **Angles:** try center, intermediate, and edge catches on both sides.
-   The center angle moves horizontally on alternate frames.
-5. **Capsules:** every fourth destroyed brick drops one, unless the pool is
-   full or it was the last brick. Collection widens; missing safely removes it.
-6. **Wide paddle:** both walls clamp correctly, the fourth piece catches balls,
-   further pickups refresh the timer, and expiration hides the extra piece.
-7. **Pause:** the ball, capsules, and power-up timer freeze. The dimmed overlay,
-   music pause, and resume still work.
-8. **Life loss:** the mosaic and sound still play. The normal-width paddle
-   returns with an attached ball and no capsules.
-9. **Level clear:** the music continues, the ball stops, and the next-level
-   prompt appears. Score and lives survive the next fade and entrance.
-10. **Level 2:** the diamond has 36 bricks. The third level has 54 bricks,
-    including a three-hit top row. Their layouts do not retain old holes.
-11. **Campaign win:** clearing all three levels awards **01460** points in total
-    and shows `YOU WIN!`. Non-destructive hits do not inflate that total.
-12. **Restart and save:** return to the title, then reload the ROM. A newly
-    earned record remains. A lower-scoring run does not overwrite it. Existing
-    Part 3 saves are still valid; keep a copy before testing if you want to
-    preserve a personal record.
-13. **Mouse:** with a SNES Mouse connected to port 2, repeat start, launch,
-    movement, and pause. Both paddle widths stop at the walls. The D-pad works
-    with or without a mouse.
-
-Only **now**, compare your code with the finished reference
-[main.c](part4/src/main.c), [game.h](part4/src/game.h),
-[game.c](part4/src/game.c), [data.asm](part4/src/data.asm), and
-[Makefile](part4/Makefile).
-
-**Checkpoint:** The clean ROM passes the checklist, and the optional native
-tests below report eleven passing groups. The screenshot shows the final
-victory state. Test on an accurate emulator and real hardware before releasing
-a game; emulator checks are not a physical-SNES certification.
-
-![Part 4 after section 8: the completed campaign](screenshots/part4-section8-victory.png)
-
-## Troubleshooting
+<details class="troubleshooting">
+<summary><h2 id="troubleshooting">Troubleshooting</h2></summary>
 
 | Symptom | Check |
 |---|---|
@@ -1667,88 +2628,7 @@ a game; emulator checks are not a physical-SNES certification.
 | Score shows punctuation above 999 | Use five characters and update `format_score` and both score buffers together. |
 | Other problems | See [Part 3 troubleshooting](README-part3.md#troubleshooting). |
 
-## Running the gameplay tests
-
-The Part 3 tests assume one full wall, whole-pixel velocities, and an immediate
-win after clearing it. Those expectations intentionally change here.
-Replace your optional `tests\test_game.c` with
-[part4/tests/test_game.c](part4/tests/test_game.c), then run from your
-**learner project** in MSYS2 UCRT64:
-
-```sh
-mkdir -p build
-gcc -std=c99 -Wall -Wextra -Werror -pedantic -O2 -Isrc tests/test_game.c src/game.c -o build/test_game
-./build/test_game
-```
-
-If GCC is missing, use the
-[Part 1 compiler setup](README.md#running-the-gameplay-tests).
-The expected output is:
-
-```text
-PASS: 11 gameplay test groups
-```
-
-The tests cover level counts and progression, final victory, damage and scoring,
-fractional movement in both directions, five rebound zones, wall and brick
-collisions, capsule capacity and collection, exact timer expiration, refreshing,
-width-dependent collision and clamping, and life/level cleanup.
-They do not emulate the PPU, sound processor, SRAM, or mouse hardware.
-
-## Validating the tutorial checkpoints
-
-This section is for contributors working in **this repository**, not a learner
-working inside their SDK. The standard-library-only
-[checkpoint verifier](tools/verify_part4.py) applies the actual diff blocks
-and complete-function replacement above to the Part 3 source, checks that the result matches the finished Part 4
-source, and can build all seven intermediate ROMs. It does not read a second,
-hidden set of implementation snippets.
-
-In MSYS2 UCRT64, with Python and the SDK installed:
-
-```sh
-python tools/verify_part4.py --output build/part4-checkpoints
-python tools/verify_part4.py --output build/part4-checkpoints --build --sdk /path/to/pvsneslib
-```
-
-For a normal build of the finished reference, from this repository's root:
-
-```sh
-make -C part4 PVSNESLIB_HOME=/path/to/pvsneslib
-gcc -std=c99 -Wall -Wextra -Werror -pedantic -O2 -Ipart4/src part4/tests/test_game.c part4/src/game.c -o build/test_part4
-./build/test_part4
-```
-
-Use the existing SDK path conventions from Part 1. On Windows, an MSYS path
-such as `/c/snesdev/pvsneslib` avoids native-drive-letter parsing differences in
-older SDK make rules.
-
-The optional [Mesen verification script](tools/verify_part4.lua) takes
-`PART4_STAGE` (1-7, or 8 for the final checks), `PART4_SYMBOLS` (that build's
-`breakout.sym`), and `PART4_OUTPUT` (an existing output directory) from the
-environment. Run it with Mesen 2's `--testRunner`, `--enableStdout`, and
-`--debug.scriptWindow.allowIoOsAccess=true` flags, followed by the ROM and Lua
-paths. It exits nonzero on assertion failure and writes a checkpoint PNG.
-Use a **separate emulator profile**: its end-game and save tests intentionally
-modify that profile's record.
-
-For reproducible late-game pictures, this script uses explicitly marked WRAM
-fixtures to position a ball or capsule and reach a final-brick situation.
-The game then performs the collision, rendering, state transition, and saving.
-The captures are real emulator frames, but are not evidence of an unassisted
-full-campaign playthrough. Manual play, listening to audio, and checking the
-mouse remain part of the checklist.
-
-## Licensing
-
-[THIRD_PARTY_NOTICES.txt](THIRD_PARTY_NOTICES.txt) retains the notice for
-PVSnesLib and its linked font. Part 4 reuses the earlier original artwork and
-adds an original capsule. No project-wide license has been selected for the
-tutorial, source, or artwork.
-
-The music and effects come from the SDK's sound example and are included in
-the finished ROM. Check their terms before redistributing a ROM containing
-them, as in Parts 2 and 3.
+</details>
 
 ## Official references
 
@@ -1769,3 +2649,7 @@ power-up rules are ordinary C gameplay code, not additional SDK facilities.
 [dma]: https://github.com/alekmaul/pvsneslib/blob/4.6.0/pvsneslib/include/snes/dma.h
 [ex-scroll]: https://github.com/alekmaul/pvsneslib/tree/4.6.0/snes-examples/graphics/Backgrounds/Mode1Scroll
 [ex-meta]: https://github.com/alekmaul/pvsneslib/tree/4.6.0/snes-examples/graphics/Sprites/DynamicEngineMetaSprite
+
+**Previous:** [Part 3 — screens, effects, saving, and the mouse](README-part3.md)
+· **Next:** [What's Next](README-whats-next.md)
+or [the tutorial site](https://mhughson.github.io/mbh-pvsneslib-breakout-tutorial/).

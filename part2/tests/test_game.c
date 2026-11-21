@@ -9,10 +9,10 @@ static void playing(Game *game)
 }
 
 /* A brick in the middle of the grid, away from the walls. */
-#define MID (2 * BRICK_COLS + 6)
+#define MID   (2 * BRICK_COLS + 6)
 #define MID_X (BRICK_X + 6 * BRICK_WIDTH)
 #define MID_Y (BRICK_Y + 2 * BRICK_HEIGHT)
-#define FAR (BRICK_COUNT - 1)
+#define FAR   (BRICK_COUNT - 1)
 
 static void two_bricks(Game *game)
 {
@@ -20,7 +20,9 @@ static void two_bricks(Game *game)
 
     playing(game);
     for (i = 0; i < BRICK_COUNT; ++i)
+    {
         game->bricks[i] = 0;
+    }
     game->bricks[MID] = 1;
     game->bricks[FAR] = 1;
     game->bricks_left = 2;
@@ -36,7 +38,9 @@ static void test_reset_and_launch(void)
     assert(game.lives == 3 && game.score == 0);
     assert(game.bricks_left == BRICK_COUNT);
     for (i = 0; i < BRICK_COUNT; ++i)
+    {
         assert(game.bricks[i] == 1);
+    }
 
     game_tick(&game, 1, 0);
     assert(game.paddle_x == 107);
@@ -54,11 +58,15 @@ static void test_paddle_limits(void)
 
     game_reset(&game);
     for (i = 0; i < 100; ++i)
+    {
         game_tick(&game, -1, 0);
+    }
     assert(game.paddle_x == FIELD_LEFT);
     assert(game.ball_x == FIELD_LEFT + 20);
     for (i = 0; i < 100; ++i)
+    {
         game_tick(&game, 1, 0);
+    }
     assert(game.paddle_x == FIELD_RIGHT - PADDLE_WIDTH);
 }
 
@@ -172,11 +180,12 @@ static void test_neighbours_and_corner(void)
 static void test_paddle_angles(void)
 {
     Game game;
-    int positions[3] = { 1, 20, 39 };
-    int expected_vx[3] = { -2, 1, 2 };
+    int positions[3] = {1, 20, 39};
+    int expected_vx[3] = {-2, 1, 2};
     int i;
 
-    for (i = 0; i < 3; ++i) {
+    for (i = 0; i < 3; ++i)
+    {
         playing(&game);
         game.ball_x = game.paddle_x + positions[i];
         game.ball_y = PADDLE_Y - BALL_SIZE;

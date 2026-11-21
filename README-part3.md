@@ -2,11 +2,14 @@
 
 This is **Part 3** of the build-it-yourself Breakout tutorial. It starts from the
 game you finished in [Part 2](README-part2.md) and changes it one feature at a
-time. As before, you write every line yourself, build it, and test a checkpoint
-before moving on.
+time. Build and run each checkpoint before moving on.
 
-**Want to see where you're going first?** Download the finished ROM,
-[part3/breakout.sfc](part3/breakout.sfc), and open it in your emulator. To try
+<div class="rom-download-panel" data-part="3">
+  <p class="rom-download-heading"><strong>Try the completed Part 3 game!</strong></p>
+  <a class="rom-download-button" href="part3/breakout.sfc" download>Download the Part 3 ROM</a>
+</div>
+
+To try
 the mouse, connect a SNES Mouse to port 2 in your emulator's input settings
 (see [section 9](#9-steer-with-the-snes-mouse)).
 
@@ -25,9 +28,6 @@ By the end of this part your game will:
 
 ![Part 3 in play](screenshots/part3-playing.png)
 
-When you finish, [Part 4](README-part4.md) adds scrolling, multiple levels,
-tougher bricks, finer ball angles, and collectible wide-paddle power-ups.
-
 ## Before you start
 
 You need the finished Part 2 project at `<SDK root>\snes-examples\breakout`. It
@@ -41,40 +41,6 @@ copying the `breakout` folder somewhere **outside** the SDK.
 Part 3 adds the FAKEOUT title logo. It reuses the four gameplay PNG files and
 the two `.it` modules from Part 2.
 
-## Tutorial versus finished reference
-
-**Do not copy this repository's `part3\src` folder into your project.** It is
-the finished result of this part, for comparison **after** you complete the
-steps. The reference [part3 Makefile](part3/Makefile) builds it with a local SDK
-under `vendor/pvsneslib`; your learner Makefile keeps its Part 1 SDK default.
-
-## How to follow the code edits
-
-The edits use the same diff blocks as Parts 1 and 2, with surrounding unchanged
-code so you can see where each change belongs:
-
-```diff
- int existing_line;
--old_line();
-+new_line();
- next_existing_line();
-```
-
-Keep the unmarked lines, remove `-` lines, and add `+` lines. Do not type the
-markers, the `---`/`+++` file names, or the `@@` separators. Separate `@@`
-sections are separate edits in the same file, in top-to-bottom order. Text after
-`@@` names the function the change is in.
-
-Almost every change in this part is in `src\main.c`. Build each checkpoint from
-your project folder in the MSYS2 UCRT64 terminal:
-
-```sh
-make
-```
-
-Then open or reload `breakout.sfc` in your emulator. If a build behaves
-strangely after you edit the Makefile, run `make clean`, then `make`.
-
 ## Contents
 
 1. [Draw the paddle as one metasprite](#1-draw-the-paddle-as-one-metasprite)
@@ -86,10 +52,8 @@ strangely after you edit the Makefile, run `make clean`, then `make`.
 7. [Pause with a dimmed overlay](#7-pause-with-a-dimmed-overlay)
 8. [Save the high score](#8-save-the-high-score)
 9. [Steer with the SNES Mouse](#9-steer-with-the-snes-mouse)
-10. [Test the finished game](#10-test-the-finished-game)
 
-See also [troubleshooting](#troubleshooting),
-[gameplay tests](#running-the-gameplay-tests), [licensing](#licensing), and
+See also [troubleshooting](#troubleshooting) and
 [official references](#official-references).
 
 ---
@@ -117,24 +81,31 @@ attributes)`, and every list ends with `METASPR_TERM`. The frame number counts
 
 ### Describe the paddle
 
+---
+
+### Open `src\main.c`
+
 In `src\main.c`, add a macro that builds one paddle frame. `PADDLE_ATTR` is the
 same palette and priority that `init_sprite` gave the paddle in Part 2:
 
-```diff
---- a/src/main.c
-+++ b/src/main.c
-@@
- #define GLIMMER_FRAMES 5
- #define GLIMMER_TICKS 3
- 
-+#define PADDLE_ATTR (OBJ_PAL(0) | OBJ_PRIO(3))
-+#define PADDLE_PIECES(frame)                       \
-+    METASPR_ITEM(0, 0, (frame), PADDLE_ATTR),      \
-+    METASPR_ITEM(16, 0, 8 + (frame), PADDLE_ATTR), \
-+    METASPR_ITEM(32, 0, 16 + (frame), PADDLE_ATTR), \
-+    METASPR_TERM
-+
- #define SFX_TADA 0
+**Goal:** Describe the paddle's three-piece shape as reusable metasprite data.
+
+<!-- tutorial-edit: {"file":"src/main.c","op":"diff-region","scope_before":"prepare_bricks","context":3} -->
+**`src\main.c` — in file-scope declarations before `prepare_bricks`, apply these changes:**
+
+```c
+#define GLIMMER_FRAMES 5
+#define GLIMMER_TICKS  3
+
+#define PADDLE_ATTR (OBJ_PAL(0) | OBJ_PRIO(3)) // [!code ++]
+#define PADDLE_PIECES(frame)                                                   \ // [!code ++]
+    METASPR_ITEM(0, 0, (frame), PADDLE_ATTR),                                  \ // [!code ++]
+        METASPR_ITEM(16, 0, 8 + (frame), PADDLE_ATTR),                         \ // [!code ++]
+        METASPR_ITEM(32, 0, 16 + (frame), PADDLE_ATTR), METASPR_TERM // [!code ++]
+ // [!code ++]
+#define SFX_TADA    0
+#define SFX_STRINGS 1
+#define SFX_PIANO   2
 ```
 
 The `\` at the end of a line continues the macro on the next line. It must be
@@ -143,27 +114,33 @@ the **last** character on the line, with no spaces after it.
 Below the `extern` lines, add one list per glimmer frame and a table that picks
 a list by frame number. They are `const`, so they stay in ROM:
 
-```diff
---- a/src/main.c
-+++ b/src/main.c
-@@
- extern u16 playfield_map[];
- extern u8 playfield_palette[];
- 
-+const t_metasprite paddle_frame0[] = { PADDLE_PIECES(0) };
-+const t_metasprite paddle_frame1[] = { PADDLE_PIECES(1) };
-+const t_metasprite paddle_frame2[] = { PADDLE_PIECES(2) };
-+const t_metasprite paddle_frame3[] = { PADDLE_PIECES(3) };
-+const t_metasprite paddle_frame4[] = { PADDLE_PIECES(4) };
-+const t_metasprite paddle_frame5[] = { PADDLE_PIECES(5) };
-+
-+const t_metasprite *paddle_frames[GLIMMER_FRAMES + 1] = {
-+    paddle_frame0, paddle_frame1, paddle_frame2,
-+    paddle_frame3, paddle_frame4, paddle_frame5
-+};
-+
- Game game;
+**Goal:** Select a complete paddle metasprite for each glimmer frame.
+
+<!-- tutorial-edit: {"file":"src/main.c","op":"diff-region","scope_before":"prepare_bricks","context":3} -->
+**`src\main.c` — in file-scope declarations before `prepare_bricks`, apply these changes:**
+
+```c
+extern u16 playfield_map[];
+extern u8 playfield_palette[];
+
+const t_metasprite paddle_frame0[] = {PADDLE_PIECES(0)}; // [!code ++]
+const t_metasprite paddle_frame1[] = {PADDLE_PIECES(1)}; // [!code ++]
+const t_metasprite paddle_frame2[] = {PADDLE_PIECES(2)}; // [!code ++]
+const t_metasprite paddle_frame3[] = {PADDLE_PIECES(3)}; // [!code ++]
+const t_metasprite paddle_frame4[] = {PADDLE_PIECES(4)}; // [!code ++]
+const t_metasprite paddle_frame5[] = {PADDLE_PIECES(5)}; // [!code ++]
+ // [!code ++]
+const t_metasprite *paddle_frames[GLIMMER_FRAMES + 1] = { // [!code ++]
+    paddle_frame0, paddle_frame1, paddle_frame2, // [!code ++]
+    paddle_frame3, paddle_frame4, paddle_frame5}; // [!code ++]
+ // [!code ++]
+Game game;
+
+static u16 brick_map[BRICK_ROWS][BRICK_COLS * 2];
 ```
+
+The six lists use the same shape with different frame indices. The pointer table
+selects one list without rebuilding the shape each frame.
 
 ### Draw it
 
@@ -172,43 +149,62 @@ set. `oamMetaDrawDyn16` copies the **first** piece's `oamrefresh` to every
 piece, so setting it on sprite 1 refreshes the whole paddle. Track the frame
 that is on screen:
 
-```diff
---- a/src/main.c
-+++ b/src/main.c
-@@
- static int paddle_glimmer;
- static int ball_glimmer;
-+static int shown_paddle_frame;
+**Goal:** Remember which paddle frame is displayed so refreshes happen only on changes.
+
+<!-- tutorial-edit: {"file":"src/main.c","op":"diff-region","scope_before":"prepare_bricks","context":3} -->
+**`src\main.c` — in file-scope declarations before `prepare_bricks`, apply these changes:**
+
+```c
+static int shown_state = -1;
+static int paddle_glimmer;
+static int ball_glimmer;
+static int shown_paddle_frame; // [!code ++]
+
 ```
+
+The cache tracks the whole metasprite rather than each piece separately.
 
 Replace the paddle loop in `draw_sprites`:
 
-```diff
---- a/src/main.c
-+++ b/src/main.c
-@@ static void draw_sprites(void)
- {
--    int i;
-     int paddle_frame;
-     int ball_frame;
- 
-@@ static void draw_sprites(void)
-     show_frame(0, ball_frame);
-     oamDynamic8Draw(0);
- 
--    for (i = 0; i < 3; ++i) {
--        oambuffer[i + 1].oamx = game.paddle_x + i * 16;
--        oambuffer[i + 1].oamy = PADDLE_Y;
--        show_frame(i + 1, i * 8 + paddle_frame);
--        oamDynamic16Draw(i + 1);
-+    if (shown_paddle_frame != paddle_frame) {
-+        shown_paddle_frame = paddle_frame;
-+        oambuffer[1].oamrefresh = 1;
-     }
-+    oamMetaDrawDyn16(1, game.paddle_x, PADDLE_Y,
-+                     (u8 *)paddle_frames[paddle_frame], paddle_tiles,
-+                     OBJ_LARGE);
- }
+**Goal:** Remove the loop index no longer needed for drawing paddle pieces.
+
+<!-- tutorial-edit: {"file":"src/main.c","op":"diff-region","function":"draw_sprites","context":3} -->
+**`src\main.c` — in `draw_sprites`, apply these changes:**
+
+```c
+static void draw_sprites(void)
+{
+    int i; // [!code --]
+    int paddle_frame;
+    int ball_frame;
+
+```
+
+The metasprite draw call will iterate its piece list internally.
+
+**Goal:** Draw and refresh the entire paddle from its selected metasprite list.
+
+<!-- tutorial-edit: {"file":"src/main.c","op":"diff-region","function":"draw_sprites","context":3} -->
+**`src\main.c` — in `draw_sprites`, apply these changes:**
+
+```c
+    show_frame(0, ball_frame);
+    oamDynamic8Draw(0);
+
+    for (i = 0; i < 3; ++i) // [!code --]
+    if (shown_paddle_frame != paddle_frame) // [!code ++]
+    {
+        shown_paddle_frame = paddle_frame; // [!code ++]
+        oambuffer[1].oamrefresh = 1; // [!code ++]
+        oambuffer[i + 1].oamx = game.paddle_x + i * 16; // [!code --]
+        oambuffer[i + 1].oamy = PADDLE_Y; // [!code --]
+        show_frame(i + 1, i * 8 + paddle_frame); // [!code --]
+        oamDynamic16Draw(i + 1); // [!code --]
+    }
+    oamMetaDrawDyn16(1, game.paddle_x, PADDLE_Y, // [!code ++]
+                     (u8 *)paddle_frames[paddle_frame], paddle_tiles, // [!code ++]
+                     OBJ_LARGE); // [!code ++]
+}
 ```
 
 The first argument, `1`, is the first sprite slot. The paddle has three pieces,
@@ -220,20 +216,27 @@ pointer itself, so the paddle no longer needs `init_sprite`. In `init_video`,
 remove those calls and set the new variable (remember: globals without a value
 are **not** zeroed):
 
-```diff
---- a/src/main.c
-+++ b/src/main.c
-@@ static void init_video(void)
-     paddle_glimmer = 0;
-     ball_glimmer = 0;
-+    shown_paddle_frame = -1;
-     init_sprite(0, ball_tiles, 0, OBJ_SIZES);
--    for (i = 0; i < 3; ++i)
--        init_sprite(i + 1, paddle_tiles, i * 8, OBJ_SIZEL);
- 
-     setMode(BG_MODE1, 0);
+**Goal:** Let the metasprite define its own pieces and force their first graphics refresh.
+
+<!-- tutorial-edit: {"file":"src/main.c","op":"diff-region","function":"init_video","context":3} -->
+**`src\main.c` — in `init_video`, apply these changes:**
+
+```c
+    setPalette(sprite_palette, 128, 16 * 2);
+    paddle_glimmer = 0;
+    ball_glimmer = 0;
+    shown_paddle_frame = -1; // [!code ++]
+    init_sprite(0, ball_tiles, 0, OBJ_SIZES);
+    for (i = 0; i < 3; ++i) // [!code --]
+    { // [!code --]
+        init_sprite(i + 1, paddle_tiles, i * 8, OBJ_SIZEL); // [!code --]
+    } // [!code --]
+
+    setMode(BG_MODE1, 0);
+
 ```
 
+The -1 frame cache forces the initial draw to upload all paddle pieces.
 Keep `int i;` in `init_video`; a later loop still uses it.
 
 **Checkpoint:** Build and run. The game looks and plays **exactly** as at the
@@ -260,59 +263,113 @@ Each screen has three parts:
 
 ### Add the screen variable
 
+---
+
+### Open `src\main.c`
+
 In `src\main.c`, add the enum after the sound-effect names and a variable after
 the others:
 
-```diff
---- a/src/main.c
-+++ b/src/main.c
-@@
- #define SFX_MARIMBA 3
- #define SFX_COWBELL 4
- 
-+enum Screen {
-+    SCREEN_TITLE,
-+    SCREEN_GAME
-+};
-+
- extern char SOUNDBANK__;
-@@
- static int shown_paddle_frame;
-+static int screen;
+**Goal:** Distinguish the title screen from the game screen independently of gameplay state.
+
+<!-- tutorial-edit: {"file":"src/main.c","op":"diff-region","scope_before":"prepare_bricks","context":3} -->
+**`src\main.c` — in file-scope declarations before `prepare_bricks`, apply these changes:**
+
+```c
+#define SFX_MARIMBA 3
+#define SFX_COWBELL 4
+
+enum Screen // [!code ++]
+{ // [!code ++]
+    SCREEN_TITLE, // [!code ++]
+    SCREEN_GAME // [!code ++]
+}; // [!code ++]
+ // [!code ++]
+extern char SOUNDBANK__;
+
+extern u8 paddle_tiles[];
 ```
+
+The screen enum belongs to presentation; READY and PLAYING still belong to `Game`.
+
+**Goal:** Track which screen should receive each frame's update.
+
+<!-- tutorial-edit: {"file":"src/main.c","op":"diff-region","scope_before":"prepare_bricks","context":3} -->
+**`src\main.c` — in file-scope declarations before `prepare_bricks`, apply these changes:**
+
+```c
+static int paddle_glimmer;
+static int ball_glimmer;
+static int shown_paddle_frame;
+static int screen; // [!code ++]
+
+```
+
+The `screen` variable selects a title or gameplay handler.
 
 Game over and victory now return to the title, so change their prompts in
 `draw_text`:
 
-```diff
---- a/src/main.c
-+++ b/src/main.c
-@@ static void draw_text(void)
-     } else if (game.state == STATE_GAME_OVER) {
-         consoleDrawText(11, 18, "GAME OVER");
--        consoleDrawText(7, 20, "B / START: NEW GAME");
-+        consoleDrawText(7, 20, "B / START: CONTINUE");
-     } else if (game.state == STATE_WON) {
-         consoleDrawText(12, 18, "YOU WIN!");
--        consoleDrawText(7, 20, "B / START: NEW GAME");
-+        consoleDrawText(7, 20, "B / START: CONTINUE");
-     }
+**Goal:** Make the game-over prompt describe returning to the title.
+
+<!-- tutorial-edit: {"file":"src/main.c","op":"diff-region","function":"draw_text","context":3} -->
+**`src\main.c` — in `draw_text`, apply these changes:**
+
+```c
+    else if (game.state == STATE_GAME_OVER)
+    {
+        consoleDrawText(11, 18, "GAME OVER");
+        consoleDrawText(7, 20, "B / START: NEW GAME"); // [!code --]
+        consoleDrawText(7, 20, "B / START: CONTINUE"); // [!code ++]
+    }
+    else if (game.state == STATE_WON)
+    {
 ```
+
+`CONTINUE` replaces `NEW GAME` because a fresh game starts from the title.
+
+**Goal:** Give the victory screen the same return-to-title prompt.
+
+<!-- tutorial-edit: {"file":"src/main.c","op":"diff-region","function":"draw_text","context":3} -->
+**`src\main.c` — in `draw_text`, apply these changes:**
+
+```c
+    else if (game.state == STATE_WON)
+    {
+        consoleDrawText(12, 18, "YOU WIN!");
+        consoleDrawText(7, 20, "B / START: NEW GAME"); // [!code --]
+        consoleDrawText(7, 20, "B / START: CONTINUE"); // [!code ++]
+    }
+    shown_state = game.state;
+}
+```
+
+Both the game-over and win screens now use the same button to return to the title.
 
 In Part 2, `play_sounds` restarted the music when a new game began. The title
 screen will start the music instead, so remove that branch:
 
-```diff
---- a/src/main.c
-+++ b/src/main.c
-@@ static void play_sounds(int old_state)
-         } else if (old_state == STATE_PLAYING) {
-             play_effect(SFX_STRINGS, 3);
--        } else {
--            start_music();
-         }
-     } else if (game.hits & HIT_BRICK) {
+**Goal:** Leave music startup to the title-screen handler.
+
+<!-- tutorial-edit: {"file":"src/main.c","op":"diff-region","function":"play_sounds","context":3} -->
+**`src\main.c` — in `play_sounds`, apply these changes:**
+
+```c
+        else if (old_state == STATE_PLAYING)
+        {
+            play_effect(SFX_STRINGS, 3);
+        }
+        else // [!code --]
+        { // [!code --]
+            start_music(); // [!code --]
+        } // [!code --]
+    }
+    else if (game.hits & HIT_BRICK)
+    {
 ```
+
+Removing the restart branch prevents the game-state audio handler from duplicating
+the title's song load.
 
 ### Show each screen
 
@@ -320,54 +377,83 @@ screen will start the music instead, so remove that branch:
 `show_game`, and `main` will turn the screen on once the title is drawn.
 Change the end of `init_video` and add the new functions right after it:
 
-```diff
---- a/src/main.c
-+++ b/src/main.c
-@@ static void init_video(void)
-     for (i = 0; i < BRICK_COUNT; ++i)
-         shown_alive[i] = 1;
-     shown_bricks = BRICK_COUNT;
-+}
- 
--    consoleDrawText(2, 1, "SCORE       LIVES");
--    draw_text();
--    setScreenOn();
-+static void clear_text(void)
-+{
-+    int row;
-+
-+    /* consoleDrawText is slow, so only clear the rows we write to. */
-+    consoleDrawText(0, 1, "                                ");
-+    for (row = 8; row <= 24; row += 2)
-+        consoleDrawText(0, row, "                                ");
-+}
-+
-+static void show_title(void)
-+{
-+    screen = SCREEN_TITLE;
-+    clear_text();
-+    bgSetDisable(1);
-+    consoleDrawText(12, 8, "FAKEOUT");
-+    consoleDrawText(10, 22, "PRESS START");
-+    start_music();
-+}
-+
-+static void show_game(void)
-+{
-+    screen = SCREEN_GAME;
-+    clear_text();
-+    bgSetEnable(1);
-+    game_reset(&game);
-+    shown_score = -1;
-+    shown_lives = -1;
-+    shown_state = -1;
-+    consoleDrawText(2, 1, "SCORE       LIVES");
-+    draw_text();
- }
+**Goal:** Separate hardware setup from drawing and enabling the initial screen.
+
+<!-- tutorial-edit: {"file":"src/main.c","op":"diff-region","function":"init_video","context":3} -->
+**`src\main.c` — in `init_video`, apply these changes:**
+
+```c
+        shown_alive[i] = 1;
+    }
+    shown_bricks = BRICK_COUNT;
+ // [!code --]
+    consoleDrawText(2, 1, "SCORE       LIVES"); // [!code --]
+    draw_text(); // [!code --]
+    setScreenOn(); // [!code --]
+}
 ```
 
-(The diff moves the closing `}` of `init_video` up; the old one now closes
-`show_game`.)
+Video initialization no longer draws a gameplay HUD or turns on an unfinished screen.
+
+**Goal:** Clear the text rows used by either screen before switching.
+
+<!-- tutorial-edit: {"file":"src/main.c","op":"add-function","name":"clear_text","before":"main"} -->
+**`src\main.c` — add this complete `clear_text` function immediately before `main`:**
+
+```c
+static void clear_text(void) // [!code ++]
+{ // [!code ++]
+    int row; // [!code ++]
+ // [!code ++]
+    /* consoleDrawText is slow, so only clear the rows we write to. */ // [!code ++]
+    consoleDrawText(0, 1, "                                "); // [!code ++]
+    for (row = 8; row <= 24; row += 2) // [!code ++]
+    { // [!code ++]
+        consoleDrawText(0, row, "                                "); // [!code ++]
+    } // [!code ++]
+} // [!code ++]
+```
+
+Only the HUD row and even message rows are cleared, reducing console work.
+
+**Goal:** Show a plain-text title over the backdrop and start its music.
+
+<!-- tutorial-edit: {"file":"src/main.c","op":"add-function","name":"show_title","before":"main"} -->
+**`src\main.c` — add this complete `show_title` function immediately before `main`:**
+
+```c
+static void show_title(void) // [!code ++]
+{ // [!code ++]
+    screen = SCREEN_TITLE; // [!code ++]
+    clear_text(); // [!code ++]
+    bgSetDisable(1); // [!code ++]
+    consoleDrawText(12, 8, "FAKEOUT"); // [!code ++]
+    consoleDrawText(10, 22, "PRESS START"); // [!code ++]
+    start_music(); // [!code ++]
+} // [!code ++]
+```
+
+Disabling BG2 hides the playfield; clearing text removes the previous game's messages.
+
+**Goal:** Restore the playfield and begin a fresh game with a fully redrawn HUD.
+
+<!-- tutorial-edit: {"file":"src/main.c","op":"add-function","name":"show_game","before":"main"} -->
+**`src\main.c` — add this complete `show_game` function immediately before `main`:**
+
+```c
+static void show_game(void) // [!code ++]
+{ // [!code ++]
+    screen = SCREEN_GAME; // [!code ++]
+    clear_text(); // [!code ++]
+    bgSetEnable(1); // [!code ++]
+    game_reset(&game); // [!code ++]
+    shown_score = -1; // [!code ++]
+    shown_lives = -1; // [!code ++]
+    shown_state = -1; // [!code ++]
+    consoleDrawText(2, 1, "SCORE       LIVES"); // [!code ++]
+    draw_text(); // [!code ++]
+} // [!code ++]
+```
 
 - `clear_text` erases the old screen's text. The text layer has 28 rows, but
   clearing them all takes `consoleDrawText` several frames, so it only clears
@@ -386,89 +472,136 @@ not draw in a frame, so the paddle and ball disappear on their own.
 Add the two update functions after `show_game`. `update_game` is the body of
 Part 2's main loop, plus a way back to the title:
 
-```diff
---- a/src/main.c
-+++ b/src/main.c
-@@
-     consoleDrawText(2, 1, "SCORE       LIVES");
-     draw_text();
- }
-+
-+static void update_title(u16 pressed)
-+{
-+    if (pressed & KEY_START)
-+        show_game();
-+}
-+
-+static void update_game(u16 held, u16 pressed)
-+{
-+    int movement;
-+    int old_state;
-+
-+    if ((game.state == STATE_GAME_OVER || game.state == STATE_WON) &&
-+        (pressed & (KEY_B | KEY_START))) {
-+        show_title();
-+        return;
-+    }
-+
-+    movement = 0;
-+    if (held & KEY_LEFT)
-+        --movement;
-+    if (held & KEY_RIGHT)
-+        ++movement;
-+    old_state = game.state;
-+    game_tick(&game, movement, pressed & (KEY_B | KEY_START));
-+
-+    play_sounds(old_state);
-+    draw_sprites();
-+    prepare_bricks();
-+    draw_text();
-+}
+**Goal:** Start a game when the player presses Start on the title.
+
+<!-- tutorial-edit: {"file":"src/main.c","op":"add-function","name":"update_title","before":"main"} -->
+**`src\main.c` — add this complete `update_title` function immediately before `main`:**
+
+```c
+static void update_title(u16 pressed) // [!code ++]
+{ // [!code ++]
+    if (pressed & KEY_START) // [!code ++]
+    { // [!code ++]
+        show_game(); // [!code ++]
+    } // [!code ++]
+} // [!code ++]
 ```
+
+The handler acts on a new press rather than a held button.
+
+**Goal:** Run gameplay on the game screen and return to the title after it ends.
+
+<!-- tutorial-edit: {"file":"src/main.c","op":"add-function","name":"update_game","before":"main"} -->
+**`src\main.c` — add this complete `update_game` function immediately before `main`:**
+
+```c
+static void update_game(u16 held, u16 pressed) // [!code ++]
+{ // [!code ++]
+    int movement; // [!code ++]
+    int old_state; // [!code ++]
+ // [!code ++]
+    if ((game.state == STATE_GAME_OVER || game.state == STATE_WON) && // [!code ++]
+        (pressed & (KEY_B | KEY_START))) // [!code ++]
+    { // [!code ++]
+        show_title(); // [!code ++]
+        return; // [!code ++]
+    } // [!code ++]
+ // [!code ++]
+    movement = 0; // [!code ++]
+    if (held & KEY_LEFT) // [!code ++]
+    { // [!code ++]
+        --movement; // [!code ++]
+    } // [!code ++]
+    if (held & KEY_RIGHT) // [!code ++]
+    { // [!code ++]
+        ++movement; // [!code ++]
+    } // [!code ++]
+    old_state = game.state; // [!code ++]
+    game_tick(&game, movement, pressed & (KEY_B | KEY_START)); // [!code ++]
+ // [!code ++]
+    play_sounds(old_state); // [!code ++]
+    draw_sprites(); // [!code ++]
+    prepare_bricks(); // [!code ++]
+    draw_text(); // [!code ++]
+} // [!code ++]
+```
+
+The terminal-state branch changes screens and returns before a restart tick.
+Otherwise the handler retains input, sounds, and drawing from the old loop.
 
 Then make `main` start on the title and call the right update each frame:
 
-```diff
---- a/src/main.c
-+++ b/src/main.c
-@@ int main(void)
- {
-     u16 held;
-     u16 pressed;
--    int movement;
--    int old_state;
- 
-     spcBoot();
-     spcSetBank(&SOUNDBANK__);
- 
--    game_reset(&game);
-     init_video();
--    start_music();
-+    show_title();
-+    setScreenOn();
- 
-     while (1) {
-         held = padsCurrent(0);
-         pressed = padsDown(0);
--        movement = 0;
--        if (held & KEY_LEFT)
--            --movement;
--        if (held & KEY_RIGHT)
--            ++movement;
--        old_state = game.state;
--        game_tick(&game, movement, pressed & (KEY_B | KEY_START));
--
--        play_sounds(old_state);
--        draw_sprites();
--        prepare_bricks();
--        draw_text();
-+        if (screen == SCREEN_TITLE)
-+            update_title(pressed);
-+        else
-+            update_game(held, pressed);
- 
-         spcProcess();
-         oamInitDynamicSpriteEndFrame();
+**Goal:** Remove gameplay locals now owned by `update_game`.
+
+<!-- tutorial-edit: {"file":"src/main.c","op":"diff-region","function":"main","context":3} -->
+**`src\main.c` — in `main`, apply these changes:**
+
+```c
+{
+    u16 held;
+    u16 pressed;
+    int movement; // [!code --]
+    int old_state; // [!code --]
+
+    spcBoot();
+    spcSetBank(&SOUNDBANK__);
+```
+
+The main loop keeps only the shared controller input.
+
+**Goal:** Boot onto a fully drawn title rather than directly into gameplay.
+
+<!-- tutorial-edit: {"file":"src/main.c","op":"diff-region","function":"main","context":3} -->
+**`src\main.c` — in `main`, apply these changes:**
+
+```c
+    spcBoot();
+    spcSetBank(&SOUNDBANK__);
+
+    game_reset(&game); // [!code --]
+    init_video();
+    start_music(); // [!code --]
+    show_title(); // [!code ++]
+    setScreenOn(); // [!code ++]
+
+    while (1)
+    {
+```
+
+`show_title` prepares the content before `setScreenOn` reveals it.
+
+**Goal:** Dispatch input and drawing to the active screen each frame.
+
+<!-- tutorial-edit: {"file":"src/main.c","op":"diff-region","function":"main","context":3} -->
+**`src\main.c` — in `main`, apply these changes:**
+
+```c
+    {
+        held = padsCurrent(0);
+        pressed = padsDown(0);
+        if (screen == SCREEN_TITLE) // [!code ++]
+        movement = 0; // [!code --]
+        if (held & KEY_LEFT) // [!code --]
+        {
+            --movement; // [!code --]
+            update_title(pressed); // [!code ++]
+        }
+        if (held & KEY_RIGHT) // [!code --]
+        else // [!code ++]
+        {
+            ++movement; // [!code --]
+            update_game(held, pressed); // [!code ++]
+        }
+        old_state = game.state; // [!code --]
+        game_tick(&game, movement, pressed & (KEY_B | KEY_START)); // [!code --]
+ // [!code --]
+        play_sounds(old_state); // [!code --]
+        draw_sprites(); // [!code --]
+        prepare_bricks(); // [!code --]
+        draw_text(); // [!code --]
+
+        spcProcess();
+        oamInitDynamicSpriteEndFrame();
 ```
 
 `show_title` now starts the music, and `show_game` resets the game when you
@@ -495,88 +628,121 @@ playfield.
 
 ### Convert the logo
 
-The logo uses 254 8 x 8 tiles and four 16-color SNES palettes. Copy
+The logo uses 214 8 x 8 tiles and four 16-color SNES palettes. Copy
 [title-logo.png](part3/title-logo.png) into your project root. It is a
 transparent 256 x 224 indexed image, with the 256 x 112 logo positioned 16
-pixels from the top. The standalone
-[fakeout-logo.png](part3/fakeout-logo.png) is available if you want to use the
-art outside the game.
+pixels from the top.
 
-![The SNES-ready FAKEOUT logo](part3/fakeout-logo.png)
+![The SNES-ready FAKEOUT title artwork](part3/title-logo.png)
+
+---
+
+### Open `Makefile`
 
 Convert the full-screen image into tiles, a map, and palettes. Add this rule
 to your Makefile and make the data object depend on the result:
 
-```diff
---- a/Makefile
-+++ b/Makefile
-@@
- backdrop.pic: backdrop.png
- 	$(GFXCONV) -s 8 -o 4 -u 4 -e 0 -p -m -t png -i $<
- 
--src/data.obj: paddle.pic ball.pic playfield.pic backdrop.pic
-+title-logo.pic: title-logo.png
-+	$(GFXCONV) -s 8 -o 64 -u 16 -e 3 -p -m -t png -i $<
-+
-+src/data.obj: paddle.pic ball.pic playfield.pic backdrop.pic title-logo.pic
+**Goal:** Convert the logo into BG2 tiles, four palettes, and a screen map.
+
+<!-- tutorial-edit: {"file":"Makefile","op":"diff-region","context":3} -->
+**`Makefile` — in the file, apply these changes:**
+
+```make
+backdrop.pic: backdrop.png
+	$(GFXCONV) -s 8 -o 4 -u 4 -e 0 -p -m -t png -i $<
+
+title-logo.pic: title-logo.png # [!code ++]
+	$(GFXCONV) -s 8 -o 64 -u 16 -e 3 -p -m -t png -i $< # [!code ++]
+ # [!code ++]
+src/data.obj: paddle.pic ball.pic playfield.pic backdrop.pic # [!code --]
+src/data.obj: paddle.pic ball.pic playfield.pic backdrop.pic title-logo.pic # [!code ++]
+src/main.obj src/game.obj: src/game.h
+
+clean: cleanBuildRes cleanRom cleanGfx cleanAudio
 ```
+
+The converter writes 64 palette colors beginning at palette 3; the dependency
+ensures these assets exist before assembly.
 
 ### Load the logo
 
+---
+
+### Open `src\data.asm`
+
 In `src\data.asm`, add a separate asset section:
 
-```diff
---- a/src/data.asm
-+++ b/src/data.asm
-@@
- .incbin "playfield.pal"
- 
- .ends
-+
-+.section ".title_logo_assets" superfree
-+
-+title_logo_tiles:
-+.incbin "title-logo.pic"
-+title_logo_tiles_end:
-+
-+title_logo_map:
-+.incbin "title-logo.map"
-+
-+title_logo_palette:
-+.incbin "title-logo.pal"
-+
-+.ends
+**Goal:** Store the title artwork in its own ROM asset section.
+
+<!-- tutorial-edit: {"file":"src/data.asm","op":"diff-region","context":3} -->
+**`src\data.asm` — in the file, apply these changes:**
+
+```asm
+.incbin "playfield.pal"
+
+.ends
+ ; [!code ++]
+.section ".title_logo_assets" superfree ; [!code ++]
+ ; [!code ++]
+title_logo_tiles: ; [!code ++]
+.incbin "title-logo.pic" ; [!code ++]
+title_logo_tiles_end: ; [!code ++]
+ ; [!code ++]
+title_logo_map: ; [!code ++]
+.incbin "title-logo.map" ; [!code ++]
+ ; [!code ++]
+title_logo_palette: ; [!code ++]
+.incbin "title-logo.pal" ; [!code ++]
+ ; [!code ++]
+.ends ; [!code ++]
 ```
+
+The section exposes tile, map, and palette labels, including a tile end label
+for calculating upload length.
+
+---
+
+### Open `src\main.c`
 
 Declare the assets in `src\main.c`:
 
-```diff
---- a/src/main.c
-+++ b/src/main.c
-@@
- extern u8 playfield_tiles[], playfield_tiles_end[];
- extern u16 playfield_map[];
- extern u8 playfield_palette[];
-+extern u8 title_logo_tiles[], title_logo_tiles_end[];
-+extern u8 title_logo_map[], title_logo_palette[];
+**Goal:** Make the title's binary assets accessible to C.
+
+<!-- tutorial-edit: {"file":"src/main.c","op":"diff-region","scope_before":"prepare_bricks","context":3} -->
+**`src\main.c` — in file-scope declarations before `prepare_bricks`, apply these changes:**
+
+```c
+extern u8 playfield_tiles[], playfield_tiles_end[];
+extern u16 playfield_map[];
+extern u8 playfield_palette[];
+extern u8 title_logo_tiles[], title_logo_tiles_end[]; // [!code ++]
+extern u8 title_logo_map[], title_logo_palette[]; // [!code ++]
+
+const t_metasprite paddle_frame0[] = {PADDLE_PIECES(0)};
+const t_metasprite paddle_frame1[] = {PADDLE_PIECES(1)};
 ```
+
+The declarations match the assembly labels and allow subtraction of the tile addresses.
 
 Upload the logo tiles and palettes, and put its 32 x 28 tile map at `0x7400`,
 while the screen is off in `init_video`:
 
-```diff
---- a/src/main.c
-+++ b/src/main.c
-@@ static void init_video(void)
-     bgSetGfxPtr(0, 0x3000);
-     bgSetMapPtr(0, 0x6800, SC_32x32);
-+    bgInitTileSet(1, title_logo_tiles, title_logo_palette, 3,
-+                  title_logo_tiles_end - title_logo_tiles, 64 * 2,
-+                  BG_16COLORS, 0x2000);
-+    dmaCopyVram(title_logo_map, 0x7400, 32 * 28 * 2);
-     bgInitTileSet(1, playfield_tiles, playfield_palette, 2,
-                   playfield_tiles_end - playfield_tiles, 16 * 2,
-                   BG_16COLORS, 0x4000);
+**Goal:** Preload the title artwork without overwriting the playfield.
+
+<!-- tutorial-edit: {"file":"src/main.c","op":"diff-region","function":"init_video","context":3} -->
+**`src\main.c` — in `init_video`, apply these changes:**
+
+```c
+    consoleInitDefaultText(1);
+    bgSetGfxPtr(0, 0x3000);
+    bgSetMapPtr(0, 0x6800, SC_32x32);
+    bgInitTileSet(1, title_logo_tiles, title_logo_palette, 3, // [!code ++]
+                  title_logo_tiles_end - title_logo_tiles, 64 * 2, BG_16COLORS, // [!code ++]
+                  0x2000); // [!code ++]
+    dmaCopyVram(title_logo_map, 0x7400, 32 * 28 * 2); // [!code ++]
+    bgInitTileSet(1, playfield_tiles, playfield_palette, 2,
+                  playfield_tiles_end - playfield_tiles, 16 * 2, BG_16COLORS,
+                  0x4000);
 ```
 
 The logo's tiles fill `0x2000`, the tile slot Part 2 left free, and its map
@@ -588,25 +754,42 @@ reserved for it.
 On the title, point background 2 at the logo instead of turning it off. When a
 game starts, point it back at the playfield:
 
-```diff
---- a/src/main.c
-+++ b/src/main.c
-@@ static void show_title(void)
-     screen = SCREEN_TITLE;
-     clear_text();
--    bgSetDisable(1);
--    consoleDrawText(12, 8, "FAKEOUT");
-+    bgSetGfxPtr(1, 0x2000);
-+    bgSetMapPtr(1, 0x7400, SC_32x32);
-+    bgSetEnable(1);
-     consoleDrawText(10, 22, "PRESS START");
-     start_music();
-@@ static void show_game(void)
-     screen = SCREEN_GAME;
-     clear_text();
-+    bgSetGfxPtr(1, 0x4000);
-+    bgSetMapPtr(1, PLAYFIELD_MAP, SC_32x32);
-     bgSetEnable(1);
+**Goal:** Show the logo on BG2 instead of the text-only title.
+
+<!-- tutorial-edit: {"file":"src/main.c","op":"diff-region","function":"show_title","context":3} -->
+**`src\main.c` — in `show_title`, apply these changes:**
+
+```c
+{
+    screen = SCREEN_TITLE;
+    clear_text();
+    bgSetGfxPtr(1, 0x2000); // [!code ++]
+    bgSetMapPtr(1, 0x7400, SC_32x32); // [!code ++]
+    bgSetDisable(1); // [!code --]
+    bgSetEnable(1); // [!code ++]
+    consoleDrawText(12, 8, "FAKEOUT"); // [!code --]
+    consoleDrawText(10, 22, "PRESS START");
+    start_music();
+}
+```
+
+BG2 switches to the logo's tile and map addresses, leaving BG3 visible through
+the logo's transparent pixels.
+
+**Goal:** Switch BG2 back to the playfield whenever gameplay begins.
+
+<!-- tutorial-edit: {"file":"src/main.c","op":"diff-region","function":"show_game","context":3} -->
+**`src\main.c` — in `show_game`, apply these changes:**
+
+```c
+{
+    screen = SCREEN_GAME;
+    clear_text();
+    bgSetGfxPtr(1, 0x4000); // [!code ++]
+    bgSetMapPtr(1, PLAYFIELD_MAP, SC_32x32); // [!code ++]
+    bgSetEnable(1);
+    game_reset(&game);
+    shown_score = -1;
 ```
 
 `init_video` already uploaded both pictures, so switching screens only changes
@@ -628,9 +811,9 @@ all 70 bricks.
 ### Brightness and forced blank
 
 The SNES has a master brightness from 0 (black) to 15 (full). PVSnesLib's
-`setBrightness(level)` sets it. Level 0 also turns on **forced blank**: the
-picture is off, so you cannot see anything being redrawn. That makes black the
-perfect moment to switch screens.
+`setBrightness(level)` sets it. Black hides the switch between already loaded
+background maps. It is not the same as **forced blank**, which
+`setScreenOff()` enables to permit VRAM uploads outside VBlank.
 
 PVSnesLib also has `setFadeEffect`, but it runs the whole fade inside one call,
 waiting for 16 frames before it returns. During that time your loop does not
@@ -643,69 +826,114 @@ and bottom of the picture differently.
 
 ### Fade one step per frame
 
+---
+
+### Open `src\main.c`
+
 Add three variables:
 
-```diff
---- a/src/main.c
-+++ b/src/main.c
-@@
- static int shown_paddle_frame;
- static int screen;
-+static int next_screen;
-+static int brightness;
-+static int fade_step;
+**Goal:** Track a fade's target screen, brightness, and direction.
+
+<!-- tutorial-edit: {"file":"src/main.c","op":"diff-region","scope_before":"prepare_bricks","context":3} -->
+**`src\main.c` — in file-scope declarations before `prepare_bricks`, apply these changes:**
+
+```c
+static int ball_glimmer;
+static int shown_paddle_frame;
+static int screen;
+static int next_screen; // [!code ++]
+static int brightness; // [!code ++]
+static int fade_step; // [!code ++]
+
 ```
 
 `fade_step` is -1 while fading out, 1 while fading in, and 0 when no fade is
 running. Add `fade_to` and `update_fade` before `update_title`, and use
 `fade_to` instead of switching screens directly:
 
-```diff
---- a/src/main.c
-+++ b/src/main.c
-@@
-     draw_text();
- }
- 
-+static void fade_to(int target)
-+{
-+    next_screen = target;
-+    fade_step = -1;
-+}
-+
-+static void update_fade(void)
-+{
-+    if (fade_step < 0 && brightness == 0) {
-+        /* The screen is black, so it is safe to rebuild it. */
-+        if (next_screen == SCREEN_TITLE)
-+            show_title();
-+        else
-+            show_game();
-+        fade_step = 1;
-+    } else if (fade_step != 0) {
-+        brightness += fade_step;
-+        if (brightness == 15)
-+            fade_step = 0;
-+    }
-+}
-+
- static void update_title(u16 pressed)
- {
-     if (pressed & KEY_START)
--        show_game();
-+        fade_to(SCREEN_GAME);
- }
- 
- static void update_game(u16 held, u16 pressed)
-@@ static void update_game(u16 held, u16 pressed)
- 
-     if ((game.state == STATE_GAME_OVER || game.state == STATE_WON) &&
-         (pressed & (KEY_B | KEY_START))) {
--        show_title();
--        return;
-+        fade_to(SCREEN_TITLE);
-+        pressed = 0;
-     }
+**Goal:** Request a screen transition by beginning a fade-out.
+
+<!-- tutorial-edit: {"file":"src/main.c","op":"add-function","name":"fade_to","before":"update_title"} -->
+**`src\main.c` — add this complete `fade_to` function immediately before `update_title`:**
+
+```c
+static void fade_to(int target) // [!code ++]
+{ // [!code ++]
+    next_screen = target; // [!code ++]
+    fade_step = -1; // [!code ++]
+} // [!code ++]
+```
+
+The target is saved for the black-screen midpoint; -1 decreases brightness.
+
+**Goal:** Advance the fade one step per frame and switch screens at black.
+
+<!-- tutorial-edit: {"file":"src/main.c","op":"add-function","name":"update_fade","before":"update_title"} -->
+**`src\main.c` — add this complete `update_fade` function immediately before `update_title`:**
+
+```c
+static void update_fade(void) // [!code ++]
+{ // [!code ++]
+    if (fade_step < 0 && brightness == 0) // [!code ++]
+    { // [!code ++]
+        /* The screen is black, so it is safe to rebuild it. */ // [!code ++]
+        if (next_screen == SCREEN_TITLE) // [!code ++]
+        { // [!code ++]
+            show_title(); // [!code ++]
+        } // [!code ++]
+        else // [!code ++]
+        { // [!code ++]
+            show_game(); // [!code ++]
+        } // [!code ++]
+        fade_step = 1; // [!code ++]
+    } // [!code ++]
+    else if (fade_step != 0) // [!code ++]
+    { // [!code ++]
+        brightness += fade_step; // [!code ++]
+        if (brightness == 15) // [!code ++]
+        { // [!code ++]
+            fade_step = 0; // [!code ++]
+        } // [!code ++]
+    } // [!code ++]
+} // [!code ++]
+```
+
+At brightness 0 the handler draws the target screen, reverses the fade, and
+stops at full brightness 15.
+
+**Goal:** Fade from title to gameplay instead of switching immediately.
+
+<!-- tutorial-edit: {"file":"src/main.c","op":"diff-region","function":"update_title","context":3} -->
+**`src\main.c` — in `update_title`, apply these changes:**
+
+```c
+{
+    if (pressed & KEY_START)
+    {
+        show_game(); // [!code --]
+        fade_to(SCREEN_GAME); // [!code ++]
+    }
+}
+```
+
+Start now requests `SCREEN_GAME` through the transition helper.
+
+**Goal:** Fade back to the title without reusing the continuation press as gameplay input.
+
+<!-- tutorial-edit: {"file":"src/main.c","op":"diff-region","function":"update_game","context":3} -->
+**`src\main.c` — in `update_game`, apply these changes:**
+
+```c
+    if ((game.state == STATE_GAME_OVER || game.state == STATE_WON) &&
+        (pressed & (KEY_B | KEY_START)))
+    {
+        show_title(); // [!code --]
+        return; // [!code --]
+        fade_to(SCREEN_TITLE); // [!code ++]
+        pressed = 0; // [!code ++]
+    }
+
+    movement = 0;
 ```
 
 `update_game` no longer returns early. It keeps drawing the paddle and ball
@@ -718,35 +946,61 @@ The game now fades in from black when it boots, so it no longer calls
 `setScreenOn`. Ignore the controller while a fade runs, so a second press
 cannot start another one, and apply the brightness after `WaitForVBlank`:
 
-```diff
---- a/src/main.c
-+++ b/src/main.c
-@@ int main(void)
-     init_video();
-     show_title();
--    setScreenOn();
-+    brightness = 0;
-+    fade_step = 1;
- 
-     while (1) {
-         held = padsCurrent(0);
-         pressed = padsDown(0);
-+        if (fade_step != 0) {
-+            held = 0;
-+            pressed = 0;
-+        }
-+        update_fade();
-         if (screen == SCREEN_TITLE)
-             update_title(pressed);
-         else
-@@ int main(void)
-         spcProcess();
-         oamInitDynamicSpriteEndFrame();
-         WaitForVBlank();
-+        setBrightness(brightness);
-         oamVramQueueUpdate();
-         upload_bricks();
-     }
+**Goal:** Fade the initial title in from black.
+
+<!-- tutorial-edit: {"file":"src/main.c","op":"diff-region","function":"main","context":3} -->
+**`src\main.c` — in `main`, apply these changes:**
+
+```c
+
+    init_video();
+    show_title();
+    setScreenOn(); // [!code --]
+    brightness = 0; // [!code ++]
+    fade_step = 1; // [!code ++]
+
+    while (1)
+    {
+```
+
+Brightness starts at 0, and the positive step reveals the title over later frames.
+
+**Goal:** Advance fades each frame and suppress controller input while they run.
+
+<!-- tutorial-edit: {"file":"src/main.c","op":"diff-region","function":"main","context":3} -->
+**`src\main.c` — in `main`, apply these changes:**
+
+```c
+    {
+        held = padsCurrent(0);
+        pressed = padsDown(0);
+        if (fade_step != 0) // [!code ++]
+        { // [!code ++]
+            held = 0; // [!code ++]
+            pressed = 0; // [!code ++]
+        } // [!code ++]
+        update_fade(); // [!code ++]
+        if (screen == SCREEN_TITLE)
+        {
+            update_title(pressed);
+```
+
+Clearing held and pressed buttons prevents overlapping transitions; the fade
+continues without blocking sound-driver processing.
+
+**Goal:** Apply the new brightness during VBlank.
+
+<!-- tutorial-edit: {"file":"src/main.c","op":"diff-region","function":"main","context":3} -->
+**`src\main.c` — in `main`, apply these changes:**
+
+```c
+        spcProcess();
+        oamInitDynamicSpriteEndFrame();
+        WaitForVBlank();
+        setBrightness(brightness); // [!code ++]
+        oamVramQueueUpdate();
+        upload_bricks();
+    }
 ```
 
 A full fade takes 15 frames out and 15 frames in, about half a second at 60
@@ -789,65 +1043,95 @@ of 8 lines cover all of it.
 
 ### Build the table
 
+---
+
+### Open `src\main.c`
+
 In `src\main.c`, add the sizes and the table. HDMA reads the table again every
 frame, so it must be a global (or `static`) array that stays valid, not a local
 variable:
 
-```diff
---- a/src/main.c
-+++ b/src/main.c
-@@
- #define GLIMMER_FRAMES 5
- #define GLIMMER_TICKS 3
- 
-+#define GRADIENT_BANDS 28
-+#define GRADIENT_LINES 8
-+
- #define PADDLE_ATTR (OBJ_PAL(0) | OBJ_PRIO(3))
-@@
- static unsigned char shown_alive[BRICK_COUNT];
-+static u8 gradient_table[GRADIENT_BANDS * 5 + 1];
- static char score_text[] = "000";
+**Goal:** Divide the visible screen into twenty-eight eight-line color bands.
+
+<!-- tutorial-edit: {"file":"src/main.c","op":"diff-region","scope_before":"prepare_bricks","context":3} -->
+**`src\main.c` — in file-scope declarations before `prepare_bricks`, apply these changes:**
+
+```c
+#define GLIMMER_FRAMES 5
+#define GLIMMER_TICKS  3
+
+#define GRADIENT_BANDS 28 // [!code ++]
+#define GRADIENT_LINES 8 // [!code ++]
+ // [!code ++]
+#define PADDLE_ATTR (OBJ_PAL(0) | OBJ_PRIO(3))
+#define PADDLE_PIECES(frame)                                                   \
+    METASPR_ITEM(0, 0, (frame), PADDLE_ATTR),                                  \
 ```
+
+Twenty-eight times eight covers all 224 visible scanlines.
+
+**Goal:** Keep the HDMA table alive for the hardware to reread every frame.
+
+<!-- tutorial-edit: {"file":"src/main.c","op":"diff-region","scope_before":"prepare_bricks","context":3} -->
+**`src\main.c` — in file-scope declarations before `prepare_bricks`, apply these changes:**
+
+```c
+static u16 brick_map[BRICK_ROWS][BRICK_COLS * 2];
+static unsigned char row_changed[BRICK_ROWS];
+static unsigned char shown_alive[BRICK_COUNT];
+static u8 gradient_table[GRADIENT_BANDS * 5 + 1]; // [!code ++]
+static char score_text[] = "000";
+static char lives_text[] = "3";
+static int shown_bricks = -1;
+```
+
+The global array reserves five bytes per band plus a terminating zero.
 
 Add `init_gradient` above `init_video`, and call it after `setMode`:
 
-```diff
---- a/src/main.c
-+++ b/src/main.c
-@@
-     oambuffer[id].oamrefresh = 1;
- }
- 
-+static void init_gradient(void)
-+{
-+    int band;
-+    u16 color;
-+    u8 *entry;
-+
-+    entry = gradient_table;
-+    for (band = 0; band < GRADIENT_BANDS; ++band) {
-+        color = RGB5(1 + band / 3, 1 + band / 9, 4 + band / 4);
-+        entry[0] = GRADIENT_LINES;
-+        entry[1] = 0;
-+        entry[2] = 0;
-+        entry[3] = color & 0xFF;
-+        entry[4] = color >> 8;
-+        entry += 5;
-+    }
-+    entry[0] = 0;
-+    setModeHdmaColor(HDMA_CHANNEL6, gradient_table);
-+}
-+
- static void init_video(void)
- {
-@@ static void init_video(void)
-     init_sprite(0, ball_tiles, 0, OBJ_SIZES);
- 
-     setMode(BG_MODE1, 0);
-+    init_gradient();
- 
-     for (row = 0; row < BRICK_ROWS; ++row) {
+**Goal:** Build a navy-to-purple color table and enable horizontal-blank color changes.
+
+<!-- tutorial-edit: {"file":"src/main.c","op":"add-function","name":"init_gradient","before":"init_video"} -->
+**`src\main.c` — add this complete `init_gradient` function immediately before `init_video`:**
+
+```c
+static void init_gradient(void) // [!code ++]
+{ // [!code ++]
+    int band; // [!code ++]
+    u16 color; // [!code ++]
+    u8 *entry; // [!code ++]
+ // [!code ++]
+    entry = gradient_table; // [!code ++]
+    for (band = 0; band < GRADIENT_BANDS; ++band) // [!code ++]
+    { // [!code ++]
+        color = RGB5(1 + band / 3, 1 + band / 9, 4 + band / 4); // [!code ++]
+        entry[0] = GRADIENT_LINES; // [!code ++]
+        entry[1] = 0; // [!code ++]
+        entry[2] = 0; // [!code ++]
+        entry[3] = color & 0xFF; // [!code ++]
+        entry[4] = color >> 8; // [!code ++]
+        entry += 5; // [!code ++]
+    } // [!code ++]
+    entry[0] = 0; // [!code ++]
+    setModeHdmaColor(HDMA_CHANNEL6, gradient_table); // [!code ++]
+} // [!code ++]
+```
+
+Each entry sets color 0 for eight scanlines; channel 6 reads the finished table.
+
+**Goal:** Enable the gradient after selecting the background mode.
+
+<!-- tutorial-edit: {"file":"src/main.c","op":"diff-region","function":"init_video","context":3} -->
+**`src\main.c` — in `init_video`, apply these changes:**
+
+```c
+    init_sprite(0, ball_tiles, 0, OBJ_SIZES);
+
+    setMode(BG_MODE1, 0);
+    init_gradient(); // [!code ++]
+
+    for (row = 0; row < BRICK_ROWS; ++row)
+    {
 ```
 
 `RGB5(r, g, b)` packs three 0-31 values into one SNES color. From top to
@@ -882,48 +1166,70 @@ step per frame instead.
 
 ### Swell and shrink
 
+---
+
+### Open `src\main.c`
+
 In `src\main.c`, add a length and a timer:
 
-```diff
---- a/src/main.c
-+++ b/src/main.c
-@@
- #define GRADIENT_BANDS 28
- #define GRADIENT_LINES 8
- 
-+#define MOSAIC_FRAMES 30
-+
- #define PADDLE_ATTR (OBJ_PAL(0) | OBJ_PRIO(3))
-@@
- static int brightness;
- static int fade_step;
-+static int mosaic_timer;
+**Goal:** Set the life-loss mosaic animation to thirty frames.
+
+<!-- tutorial-edit: {"file":"src/main.c","op":"diff-region","scope_before":"prepare_bricks","context":3} -->
+**`src\main.c` — in file-scope declarations before `prepare_bricks`, apply these changes:**
+
+```c
+#define GRADIENT_BANDS 28
+#define GRADIENT_LINES 8
+
+#define MOSAIC_FRAMES 30 // [!code ++]
+ // [!code ++]
+#define PADDLE_ATTR (OBJ_PAL(0) | OBJ_PRIO(3))
+#define PADDLE_PIECES(frame)                                                   \
+    METASPR_ITEM(0, 0, (frame), PADDLE_ATTR),                                  \
 ```
+
+The duration covers both growth and shrinkage of the pixel blocks.
+
+**Goal:** Track the remaining mosaic animation time between frames.
+
+<!-- tutorial-edit: {"file":"src/main.c","op":"diff-region","scope_before":"prepare_bricks","context":3} -->
+**`src\main.c` — in file-scope declarations before `prepare_bricks`, apply these changes:**
+
+```c
+static int next_screen;
+static int brightness;
+static int fade_step;
+static int mosaic_timer; // [!code ++]
+
+```
+
+A zero timer means no effect is active.
 
 Add `update_mosaic` above `update_title`:
 
-```diff
---- a/src/main.c
-+++ b/src/main.c
-@@
-     }
- }
- 
-+static void update_mosaic(void)
-+{
-+    int size;
-+
-+    if (mosaic_timer == 0)
-+        return;
-+    --mosaic_timer;
-+    /* Grow to the biggest block size, then shrink back to normal. */
-+    size = mosaic_timer;
-+    if (size > MOSAIC_FRAMES / 2)
-+        size = MOSAIC_FRAMES - size;
-+    REG_MOSAIC = (size << 4) | MOSAIC_BG1 | MOSAIC_BG2 | MOSAIC_BG3;
-+}
-+
- static void update_title(u16 pressed)
+**Goal:** Grow and shrink background pixel blocks without blocking the main loop.
+
+<!-- tutorial-edit: {"file":"src/main.c","op":"add-function","name":"update_mosaic","before":"update_title"} -->
+**`src\main.c` — add this complete `update_mosaic` function immediately before `update_title`:**
+
+```c
+static void update_mosaic(void) // [!code ++]
+{ // [!code ++]
+    int size; // [!code ++]
+ // [!code ++]
+    if (mosaic_timer == 0) // [!code ++]
+    { // [!code ++]
+        return; // [!code ++]
+    } // [!code ++]
+    --mosaic_timer; // [!code ++]
+    /* Grow to the biggest block size, then shrink back to normal. */ // [!code ++]
+    size = mosaic_timer; // [!code ++]
+    if (size > MOSAIC_FRAMES / 2) // [!code ++]
+    { // [!code ++]
+        size = MOSAIC_FRAMES - size; // [!code ++]
+    } // [!code ++]
+    REG_MOSAIC = (size << 4) | MOSAIC_BG1 | MOSAIC_BG2 | MOSAIC_BG3; // [!code ++]
+} // [!code ++]
 ```
 
 As the timer counts from 29 down to 0, `size` goes 1, 2, ... 15, then 14, 13,
@@ -932,40 +1238,62 @@ As the timer counts from 29 down to 0, `size` goes 1, 2, ... 15, then 14, 13,
 Start the effect when the ball is lost: the state changes from PLAYING to READY
 (lives left) or to GAME_OVER (no lives left):
 
-```diff
---- a/src/main.c
-+++ b/src/main.c
-@@ static void update_game(u16 held, u16 pressed)
-     old_state = game.state;
-     game_tick(&game, movement, pressed & (KEY_B | KEY_START));
-+    if (old_state == STATE_PLAYING &&
-+        (game.state == STATE_READY || game.state == STATE_GAME_OVER))
-+        mosaic_timer = MOSAIC_FRAMES;
- 
-     play_sounds(old_state);
+**Goal:** Trigger mosaic only when a playing ball is lost.
+
+<!-- tutorial-edit: {"file":"src/main.c","op":"diff-region","function":"update_game","context":3} -->
+**`src\main.c` — in `update_game`, apply these changes:**
+
+```c
+    }
+    old_state = game.state;
+    game_tick(&game, movement, pressed & (KEY_B | KEY_START));
+    if (old_state == STATE_PLAYING && // [!code ++]
+        (game.state == STATE_READY || game.state == STATE_GAME_OVER)) // [!code ++]
+    { // [!code ++]
+        mosaic_timer = MOSAIC_FRAMES; // [!code ++]
+    } // [!code ++]
+
+    play_sounds(old_state);
+    draw_sprites();
 ```
+
+The transition test includes both a nonfinal miss and the final game-over miss.
 
 Set the timer at boot, and apply the mosaic after `WaitForVBlank`:
 
-```diff
---- a/src/main.c
-+++ b/src/main.c
-@@ int main(void)
-     show_title();
-     brightness = 0;
-     fade_step = 1;
-+    mosaic_timer = 0;
- 
-     while (1) {
-@@ int main(void)
-         oamInitDynamicSpriteEndFrame();
-         WaitForVBlank();
-         setBrightness(brightness);
-+        update_mosaic();
-         oamVramQueueUpdate();
-         upload_bricks();
-     }
+**Goal:** Begin with no mosaic effect, regardless of startup RAM contents.
+
+<!-- tutorial-edit: {"file":"src/main.c","op":"diff-region","function":"main","context":3} -->
+**`src\main.c` — in `main`, apply these changes:**
+
+```c
+    show_title();
+    brightness = 0;
+    fade_step = 1;
+    mosaic_timer = 0; // [!code ++]
+
+    while (1)
+    {
 ```
+
+Explicit initialization prevents a random pixelation sequence at boot.
+
+**Goal:** Update the mosaic register alongside other VBlank display changes.
+
+<!-- tutorial-edit: {"file":"src/main.c","op":"diff-region","function":"main","context":3} -->
+**`src\main.c` — in `main`, apply these changes:**
+
+```c
+        oamInitDynamicSpriteEndFrame();
+        WaitForVBlank();
+        setBrightness(brightness);
+        update_mosaic(); // [!code ++]
+        oamVramQueueUpdate();
+        upload_bricks();
+    }
+```
+
+The per-frame call writes the next block size and eventually restores normal pixels.
 
 **Checkpoint:** Build and run. Launch the ball and miss it. The walls, bricks,
 backdrop, and text break up into growing blocks for a quarter of a second, then
@@ -1000,84 +1328,150 @@ ball, are never affected by color math, so they stay bright too.
 
 ### Pause and resume
 
+---
+
+### Open `src\main.c`
+
 In `src\main.c`, add a `paused` flag and a matching `shown_paused` so
 `draw_text` knows when to redraw:
 
-```diff
---- a/src/main.c
-+++ b/src/main.c
-@@
- static int shown_state = -1;
-+static int shown_paused = -1;
- static int paddle_glimmer;
-@@
- static int mosaic_timer;
-+static int paused;
+**Goal:** Redraw prompts when pause status changes, even if gameplay state does not.
+
+<!-- tutorial-edit: {"file":"src/main.c","op":"diff-region","scope_before":"prepare_bricks","context":3} -->
+**`src\main.c` — in file-scope declarations before `prepare_bricks`, apply these changes:**
+
+```c
+static int shown_score = -1;
+static int shown_lives = -1;
+static int shown_state = -1;
+static int shown_paused = -1; // [!code ++]
+static int paddle_glimmer;
+static int ball_glimmer;
+static int shown_paddle_frame;
 ```
+
+The separate cache recognizes pause transitions inside `STATE_PLAYING`.
+
+**Goal:** Track whether gameplay updates should be frozen.
+
+<!-- tutorial-edit: {"file":"src/main.c","op":"diff-region","scope_before":"prepare_bricks","context":3} -->
+**`src\main.c` — in file-scope declarations before `prepare_bricks`, apply these changes:**
+
+```c
+static int brightness;
+static int fade_step;
+static int mosaic_timer;
+static int paused; // [!code ++]
+
+```
+
+`paused` belongs to the screen controller rather than the independent gameplay rules.
 
 Show the pause message in `draw_text`:
 
-```diff
---- a/src/main.c
-+++ b/src/main.c
-@@ static void draw_text(void)
--    if (shown_state == game.state)
-+    if (shown_state == game.state && shown_paused == paused)
-         return;
- 
-     consoleDrawText(3, 18, "                          ");
-     consoleDrawText(3, 20, "                          ");
--    if (game.state == STATE_READY) {
-+    if (paused) {
-+        consoleDrawText(13, 18, "PAUSED");
-+        consoleDrawText(8, 20, "START TO RESUME");
-+    } else if (game.state == STATE_READY) {
-         consoleDrawText(7, 18, "B / START TO LAUNCH");
-@@ static void draw_text(void)
-     shown_state = game.state;
-+    shown_paused = paused;
- }
+**Goal:** Include pause status when deciding whether prompts need redrawing.
+
+<!-- tutorial-edit: {"file":"src/main.c","op":"diff-region","function":"draw_text","context":3} -->
+**`src\main.c` — in `draw_text`, apply these changes:**
+
+```c
+        shown_lives = game.lives;
+    }
+
+    if (shown_state == game.state) // [!code --]
+    if (shown_state == game.state && shown_paused == paused) // [!code ++]
+    {
+        return;
+    }
 ```
+
+The early return now requires both state and pause status to match the cache.
+
+**Goal:** Show pause instructions instead of the normal gameplay prompts.
+
+<!-- tutorial-edit: {"file":"src/main.c","op":"diff-region","function":"draw_text","context":3} -->
+**`src\main.c` — in `draw_text`, apply these changes:**
+
+```c
+
+    consoleDrawText(3, 18, "                          ");
+    consoleDrawText(3, 20, "                          ");
+    if (paused) // [!code ++]
+    { // [!code ++]
+        consoleDrawText(13, 18, "PAUSED"); // [!code ++]
+        consoleDrawText(8, 20, "START TO RESUME"); // [!code ++]
+    } // [!code ++]
+    if (game.state == STATE_READY) // [!code --]
+    else if (game.state == STATE_READY) // [!code ++]
+    {
+        consoleDrawText(7, 18, "B / START TO LAUNCH");
+        consoleDrawText(6, 20, "LEFT / RIGHT TO MOVE");
+    }
+```
+
+The pause branch takes priority and leaves the score and life digits unchanged.
+
+**Goal:** Remember the pause status represented by the newly drawn prompts.
+
+<!-- tutorial-edit: {"file":"src/main.c","op":"diff-region","function":"draw_text","context":3} -->
+**`src\main.c` — in `draw_text`, apply these changes:**
+
+```c
+        consoleDrawText(7, 20, "B / START: CONTINUE");
+    }
+    shown_state = game.state;
+    shown_paused = paused; // [!code ++]
+}
+```
+
+Updating the cache prevents the same pause text from being rewritten every frame.
 
 A new game is never paused:
 
-```diff
---- a/src/main.c
-+++ b/src/main.c
-@@ static void show_game(void)
-     bgSetEnable(1);
-     game_reset(&game);
-+    paused = 0;
-     shown_score = -1;
+**Goal:** Start every new game unpaused.
+
+<!-- tutorial-edit: {"file":"src/main.c","op":"diff-region","function":"show_game","context":3} -->
+**`src\main.c` — in `show_game`, apply these changes:**
+
+```c
+    bgSetMapPtr(1, PLAYFIELD_MAP, SC_32x32);
+    bgSetEnable(1);
+    game_reset(&game);
+    paused = 0; // [!code ++]
+    shown_score = -1;
+    shown_lives = -1;
+    shown_state = -1;
 ```
+
+Resetting the flag ensures a fresh game can accept movement and launch input.
 
 Add `set_paused` above `update_title`. It also pauses the music:
 
-```diff
---- a/src/main.c
-+++ b/src/main.c
-@@
-     REG_MOSAIC = (size << 4) | MOSAIC_BG1 | MOSAIC_BG2 | MOSAIC_BG3;
- }
- 
-+static void set_paused(int on)
-+{
-+    paused = on;
-+    if (paused) {
-+        /* Don't replay the last hit's glimmer on every paused frame. */
-+        game.hits = 0;
-+        spcPauseMusic();
-+        /* Halve the backdrop and BG2/BG3; BG1 text and sprites stay bright. */
-+        setColorIntensity(CM_APPLY_RED | CM_APPLY_GREEN | CM_APPLY_BLUE, 0);
-+        setColorEffect(0, CM_SUB_MAINSUB | CM_DIV2_DIVIDE | CM_MSCR_BACK |
-+                              CM_MSCR_BG2 | CM_MSCR_BG3);
-+    } else {
-+        spcResumeMusic();
-+        setColorEffect(0, 0);
-+    }
-+}
-+
- static void update_title(u16 pressed)
+**Goal:** Synchronize pause status with music and the dimmed background effect.
+
+<!-- tutorial-edit: {"file":"src/main.c","op":"add-function","name":"set_paused","before":"update_title"} -->
+**`src\main.c` — add this complete `set_paused` function immediately before `update_title`:**
+
+```c
+static void set_paused(int on) // [!code ++]
+{ // [!code ++]
+    paused = on; // [!code ++]
+    if (paused) // [!code ++]
+    { // [!code ++]
+        /* Don't replay the last hit's glimmer on every paused frame. */ // [!code ++]
+        game.hits = 0; // [!code ++]
+        spcPauseMusic(); // [!code ++]
+        /* Halve the backdrop and BG2/BG3; BG1 text and sprites stay bright. */ // [!code ++]
+        setColorIntensity(CM_APPLY_RED | CM_APPLY_GREEN | CM_APPLY_BLUE, 0); // [!code ++]
+        setColorEffect(0, CM_SUB_MAINSUB | CM_DIV2_DIVIDE | CM_MSCR_BACK | // [!code ++]
+                              CM_MSCR_BG2 | CM_MSCR_BG3); // [!code ++]
+    } // [!code ++]
+    else // [!code ++]
+    { // [!code ++]
+        spcResumeMusic(); // [!code ++]
+        setColorEffect(0, 0); // [!code ++]
+    } // [!code ++]
+} // [!code ++]
 ```
 
 `draw_sprites` keeps running while paused, and it starts a glimmer whenever
@@ -1089,49 +1483,79 @@ the glimmer every frame. `setColorEffect(0, 0)` turns color math off again.
 In `update_game`, Start toggles the pause during play. While paused, skip the
 game tick, the mosaic trigger, and the sounds, but keep drawing:
 
-```diff
---- a/src/main.c
-+++ b/src/main.c
-@@ static void update_game(u16 held, u16 pressed)
-         fade_to(SCREEN_TITLE);
-         pressed = 0;
-     }
-+    if (game.state == STATE_PLAYING && (pressed & KEY_START)) {
-+        set_paused(!paused);
-+        pressed = 0;
-+    }
-+
-+    if (!paused) {
-+        movement = 0;
-+        if (held & KEY_LEFT)
-+            --movement;
-+        if (held & KEY_RIGHT)
-+            ++movement;
-+        old_state = game.state;
-+        game_tick(&game, movement, pressed & (KEY_B | KEY_START));
-+        if (old_state == STATE_PLAYING &&
-+            (game.state == STATE_READY || game.state == STATE_GAME_OVER))
-+            mosaic_timer = MOSAIC_FRAMES;
-+        play_sounds(old_state);
-+    }
- 
--    movement = 0;
--    if (held & KEY_LEFT)
--        --movement;
--    if (held & KEY_RIGHT)
--        ++movement;
--    old_state = game.state;
--    game_tick(&game, movement, pressed & (KEY_B | KEY_START));
--    if (old_state == STATE_PLAYING &&
--        (game.state == STATE_READY || game.state == STATE_GAME_OVER))
--        mosaic_timer = MOSAIC_FRAMES;
--
--    play_sounds(old_state);
-     draw_sprites();
-     prepare_bricks();
-     draw_text();
+**Goal:** Toggle pause on a new Start press during play.
+
+<!-- tutorial-edit: {"file":"src/main.c","op":"diff-region","function":"update_game","context":3} -->
+**`src\main.c` — in `update_game`, apply these changes:**
+
+```c
+        fade_to(SCREEN_TITLE);
+        pressed = 0;
+    }
+    if (game.state == STATE_PLAYING && (pressed & KEY_START)) // [!code ++]
+ // [!code --]
+    movement = 0; // [!code --]
+    if (held & KEY_LEFT) // [!code --]
+    {
+        --movement; // [!code --]
+        set_paused(!paused); // [!code ++]
+        pressed = 0; // [!code ++]
+    }
+    if (held & KEY_RIGHT) // [!code --]
+    { // [!code --]
+        ++movement; // [!code --]
+    } // [!code --]
+    old_state = game.state; // [!code --]
+    game_tick(&game, movement, pressed & (KEY_B | KEY_START)); // [!code --]
+    if (old_state == STATE_PLAYING && // [!code --]
+        (game.state == STATE_READY || game.state == STATE_GAME_OVER)) // [!code --]
+    { // [!code --]
+        mosaic_timer = MOSAIC_FRAMES; // [!code --]
+    } // [!code --]
+
+    play_sounds(old_state);
+    draw_sprites();
 ```
 
+The press is consumed by the pause toggle instead of also reaching gameplay.
+
+**Goal:** Skip movement, life-loss detection, and event sounds while paused.
+
+<!-- tutorial-edit: {"file":"src/main.c","op":"diff-region","function":"update_game","context":3} -->
+**`src\main.c` — in `update_game`, apply these changes:**
+
+```c
+        pressed = 0;
+    }
+
+    play_sounds(old_state); // [!code --]
+    if (!paused) // [!code ++]
+    { // [!code ++]
+        movement = 0; // [!code ++]
+        if (held & KEY_LEFT) // [!code ++]
+        { // [!code ++]
+            --movement; // [!code ++]
+        } // [!code ++]
+        if (held & KEY_RIGHT) // [!code ++]
+        { // [!code ++]
+            ++movement; // [!code ++]
+        } // [!code ++]
+        old_state = game.state; // [!code ++]
+        game_tick(&game, movement, pressed & (KEY_B | KEY_START)); // [!code ++]
+        if (old_state == STATE_PLAYING && // [!code ++]
+            (game.state == STATE_READY || game.state == STATE_GAME_OVER)) // [!code ++]
+        { // [!code ++]
+            mosaic_timer = MOSAIC_FRAMES; // [!code ++]
+        } // [!code ++]
+        play_sounds(old_state); // [!code ++]
+    } // [!code ++]
+ // [!code ++]
+    draw_sprites();
+    prepare_bricks();
+    draw_text();
+```
+
+The drawing calls remain outside the guarded block, so sprites and text stay visible.
 Pausing only works while the ball is in play. In the READY state, Start still
 launches the ball.
 
@@ -1155,20 +1579,28 @@ its contents when the console is off. This is **SRAM** (save RAM). A ROM's
 header tells the console and emulators whether the cartridge has it, and how
 big it is.
 
+---
+
+### Open `Makefile`
+
 PVSnesLib's build fills in the header from Makefile variables. Set them in your
 `Makefile` **before** the `include` line, after `ROMTITLE`:
 
-```diff
---- a/Makefile
-+++ b/Makefile
-@@
- export ROMNAME := breakout
- export ROMTITLE := BREAKOUT TUTORIAL
-+# ROM + save RAM + battery, with 2 KB of save RAM for the high score.
-+export CARTRIDGETYPE := 02
-+export SRAMSIZE := 01
- 
- include $(PVSNESLIB_HOME)/devkitsnes/snes_rules
+**Goal:** Declare a battery-backed cartridge with two kilobytes of save RAM.
+
+<!-- tutorial-edit: {"file":"Makefile","op":"diff-region","context":3} -->
+**`Makefile` — in the file, apply these changes:**
+
+```make
+
+export ROMNAME := breakout
+export ROMTITLE := BREAKOUT TUTORIAL
+# ROM + save RAM + battery, with 2 KB of save RAM for the high score. # [!code ++]
+export CARTRIDGETYPE := 02 # [!code ++]
+export SRAMSIZE := 01 # [!code ++]
+
+include $(PVSNESLIB_HOME)/devkitsnes/snes_rules
+
 ```
 
 The header is built once, so after changing these values run `make clean`
@@ -1193,124 +1625,214 @@ starts from 0.
 
 ### Load, record, and save
 
+---
+
+### Open `src\main.c`
+
 In `src\main.c`, add the magic number and the save layout:
 
-```diff
---- a/src/main.c
-+++ b/src/main.c
-@@
- #define MOSAIC_FRAMES 30
- 
-+#define SAVE_MAGIC 0x4B42
-+
- #define PADDLE_ATTR (OBJ_PAL(0) | OBJ_PRIO(3))
-@@
-     SCREEN_GAME
- };
- 
-+typedef struct SaveData {
-+    u16 magic;
-+    u16 high_score;
-+    u16 check;
-+} SaveData;
-+
- extern char SOUNDBANK__;
+**Goal:** Identify save data written by this game.
+
+<!-- tutorial-edit: {"file":"src/main.c","op":"diff-region","scope_before":"prepare_bricks","context":3} -->
+**`src\main.c` — in file-scope declarations before `prepare_bricks`, apply these changes:**
+
+```c
+
+#define MOSAIC_FRAMES 30
+
+#define SAVE_MAGIC 0x4B42 // [!code ++]
+ // [!code ++]
+#define PADDLE_ATTR (OBJ_PAL(0) | OBJ_PRIO(3))
+#define PADDLE_PIECES(frame)                                                   \
+    METASPR_ITEM(0, 0, (frame), PADDLE_ATTR),                                  \
 ```
+
+The magic constant distinguishes a valid record from arbitrary SRAM bytes.
+
+**Goal:** Store the score alongside its magic number and complementary check value.
+
+<!-- tutorial-edit: {"file":"src/main.c","op":"diff-region","scope_before":"prepare_bricks","context":3} -->
+**`src\main.c` — in file-scope declarations before `prepare_bricks`, apply these changes:**
+
+```c
+enum Screen
+{
+    SCREEN_TITLE,
+    SCREEN_GAME
+};
+ // [!code ++]
+typedef struct SaveData // [!code ++]
+{ // [!code ++]
+    u16 magic; // [!code ++]
+    u16 high_score; // [!code ++]
+    u16 check; // [!code ++]
+} SaveData; // [!code ++]
+
+extern char SOUNDBANK__;
+
+```
+
+Three `u16` fields make a compact save record for validation on the next boot.
 
 Add the title-screen text and the variables:
 
-```diff
---- a/src/main.c
-+++ b/src/main.c
-@@
- static char lives_text[] = "3";
-+static char high_score_text[] = "HIGH SCORE 000";
- static int shown_bricks = -1;
-@@
- static int paused;
-+static SaveData save;
-+static unsigned int high_score;
-+static int new_high_score;
+**Goal:** Reserve a title-screen string for displaying the current record.
+
+<!-- tutorial-edit: {"file":"src/main.c","op":"diff-region","scope_before":"prepare_bricks","context":3} -->
+**`src\main.c` — in file-scope declarations before `prepare_bricks`, apply these changes:**
+
+```c
+static u8 gradient_table[GRADIENT_BANDS * 5 + 1];
+static char score_text[] = "000";
+static char lives_text[] = "3";
+static char high_score_text[] = "HIGH SCORE 000"; // [!code ++]
+static int shown_bricks = -1;
+static int shown_score = -1;
+static int shown_lives = -1;
 ```
+
+The final three characters will be replaced with score digits.
+
+**Goal:** Track loaded save data, the record, and whether this game set a new record.
+
+<!-- tutorial-edit: {"file":"src/main.c","op":"diff-region","scope_before":"prepare_bricks","context":3} -->
+**`src\main.c` — in file-scope declarations before `prepare_bricks`, apply these changes:**
+
+```c
+static int fade_step;
+static int mosaic_timer;
+static int paused;
+static SaveData save; // [!code ++]
+static unsigned int high_score; // [!code ++]
+static int new_high_score; // [!code ++]
+
+```
+
+The save buffer serves SRAM transfers; the other variables serve comparison and prompts.
 
 Both the HUD and the title now print three-digit scores, so move the digit
 code from `draw_text` into a helper. Also show `NEW HIGH SCORE!` under the
 end-of-game message:
 
-```diff
---- a/src/main.c
-+++ b/src/main.c
-@@
-     }
- }
- 
-+static void format_score(char *text, unsigned int score)
-+{
-+    text[0] = '0' + score / 100;
-+    text[1] = '0' + (score / 10) % 10;
-+    text[2] = '0' + score % 10;
-+}
-+
- static void draw_text(void)
- {
-     if (shown_score != game.score) {
--        score_text[0] = '0' + game.score / 100;
--        score_text[1] = '0' + (game.score / 10) % 10;
--        score_text[2] = '0' + game.score % 10;
-+        format_score(score_text, game.score);
-         consoleDrawText(8, 1, score_text);
-         shown_score = game.score;
-     }
-@@ static void draw_text(void)
-         consoleDrawText(12, 18, "YOU WIN!");
-         consoleDrawText(7, 20, "B / START: CONTINUE");
-     }
-+    if (new_high_score)
-+        consoleDrawText(8, 22, "NEW HIGH SCORE!");
-     shown_state = game.state;
-     shown_paused = paused;
- }
+**Goal:** Share three-digit score formatting between the HUD and title.
+
+<!-- tutorial-edit: {"file":"src/main.c","op":"add-function","name":"format_score","before":"draw_text"} -->
+**`src\main.c` — add this complete `format_score` function immediately before `draw_text`:**
+
+```c
+static void format_score(char *text, unsigned int score) // [!code ++]
+{ // [!code ++]
+    text[0] = '0' + score / 100; // [!code ++]
+    text[1] = '0' + (score / 10) % 10; // [!code ++]
+    text[2] = '0' + score % 10; // [!code ++]
+} // [!code ++]
 ```
+
+The helper writes decimal digits into an existing string without changing its terminator.
+
+**Goal:** Use the shared formatter for the gameplay score.
+
+<!-- tutorial-edit: {"file":"src/main.c","op":"diff-region","function":"draw_text","context":3} -->
+**`src\main.c` — in `draw_text`, apply these changes:**
+
+```c
+{
+    if (shown_score != game.score)
+    {
+        format_score(score_text, game.score); // [!code ++]
+        score_text[0] = '0' + game.score / 100; // [!code --]
+        score_text[1] = '0' + (game.score / 10) % 10; // [!code --]
+        score_text[2] = '0' + game.score % 10; // [!code --]
+        consoleDrawText(8, 1, score_text);
+        shown_score = game.score;
+    }
+```
+
+This replaces the inline digit calculations without changing the HUD's cache behavior.
+
+**Goal:** Announce a new record beneath the end-of-game message.
+
+<!-- tutorial-edit: {"file":"src/main.c","op":"diff-region","function":"draw_text","context":3} -->
+**`src\main.c` — in `draw_text`, apply these changes:**
+
+```c
+    else if (game.state == STATE_WON)
+    {
+        consoleDrawText(12, 18, "YOU WIN!");
+        consoleDrawText(7, 20, "B / START: CONTINUE");
+    }
+    if (new_high_score) // [!code ++]
+    { // [!code ++]
+        consoleDrawText(8, 22, "NEW HIGH SCORE!"); // [!code ++]
+    } // [!code ++]
+    shown_state = game.state;
+    shown_paused = paused;
+}
+```
+
+The message is drawn only when the record flag has been set for this game.
 
 Add the save functions after `play_sounds`:
 
-```diff
---- a/src/main.c
-+++ b/src/main.c
-@@
-     }
- }
- 
-+static void load_high_score(void)
-+{
-+    consoleLoadSram((u8 *)&save, sizeof(save));
-+    /* New or corrupt save RAM holds random bytes, so check it first. */
-+    if (save.magic == SAVE_MAGIC && save.check == (save.high_score ^ 0xFFFF))
-+        high_score = save.high_score;
-+    else
-+        high_score = 0;
-+}
-+
-+static void save_high_score(void)
-+{
-+    save.magic = SAVE_MAGIC;
-+    save.high_score = high_score;
-+    save.check = high_score ^ 0xFFFF;
-+    consoleCopySram((u8 *)&save, sizeof(save));
-+}
-+
-+static void record_score(int old_state)
-+{
-+    if (game.state == old_state || game.score <= high_score)
-+        return;
-+    if (game.state == STATE_GAME_OVER || game.state == STATE_WON) {
-+        high_score = game.score;
-+        new_high_score = 1;
-+        save_high_score();
-+    }
-+}
-+
- static void init_sprite(int id, u8 *graphics, int frame, int size)
+**Goal:** Accept a saved score only when its magic and check value agree.
+
+<!-- tutorial-edit: {"file":"src/main.c","op":"add-function","name":"load_high_score","before":"init_sprite"} -->
+**`src\main.c` — add this complete `load_high_score` function immediately before `init_sprite`:**
+
+```c
+static void load_high_score(void) // [!code ++]
+{ // [!code ++]
+    consoleLoadSram((u8 *)&save, sizeof(save)); // [!code ++]
+    /* New or corrupt save RAM holds random bytes, so check it first. */ // [!code ++]
+    if (save.magic == SAVE_MAGIC && save.check == (save.high_score ^ 0xFFFF)) // [!code ++]
+    { // [!code ++]
+        high_score = save.high_score; // [!code ++]
+    } // [!code ++]
+    else // [!code ++]
+    { // [!code ++]
+        high_score = 0; // [!code ++]
+    } // [!code ++]
+} // [!code ++]
+```
+
+Invalid or unwritten SRAM produces a zero record rather than untrusted score digits.
+
+**Goal:** Write a validated high-score record to cartridge SRAM.
+
+<!-- tutorial-edit: {"file":"src/main.c","op":"add-function","name":"save_high_score","before":"init_sprite"} -->
+**`src\main.c` — add this complete `save_high_score` function immediately before `init_sprite`:**
+
+```c
+static void save_high_score(void) // [!code ++]
+{ // [!code ++]
+    save.magic = SAVE_MAGIC; // [!code ++]
+    save.high_score = high_score; // [!code ++]
+    save.check = high_score ^ 0xFFFF; // [!code ++]
+    consoleCopySram((u8 *)&save, sizeof(save)); // [!code ++]
+} // [!code ++]
+```
+
+The writer fills the magic and bitwise-complement check before copying the record.
+
+**Goal:** Save a better score once, when the game ends.
+
+<!-- tutorial-edit: {"file":"src/main.c","op":"add-function","name":"record_score","before":"init_sprite"} -->
+**`src\main.c` — add this complete `record_score` function immediately before `init_sprite`:**
+
+```c
+static void record_score(int old_state) // [!code ++]
+{ // [!code ++]
+    if (game.state == old_state || game.score <= high_score) // [!code ++]
+    { // [!code ++]
+        return; // [!code ++]
+    } // [!code ++]
+    if (game.state == STATE_GAME_OVER || game.state == STATE_WON) // [!code ++]
+    { // [!code ++]
+        high_score = game.score; // [!code ++]
+        new_high_score = 1; // [!code ++]
+        save_high_score(); // [!code ++]
+    } // [!code ++]
+} // [!code ++]
 ```
 
 `record_score` saves only once per game, on the frame the game ends, and only
@@ -1319,23 +1841,37 @@ pointless.
 
 Show the record on the title, and reset the message for each new game:
 
-```diff
---- a/src/main.c
-+++ b/src/main.c
-@@ static void show_title(void)
-     bgSetGfxPtr(1, 0x2000);
-     bgSetMapPtr(1, 0x7400, SC_32x32);
-     bgSetEnable(1);
-+    format_score(high_score_text + 11, high_score);
-+    consoleDrawText(9, 18, high_score_text);
-     consoleDrawText(10, 22, "PRESS START");
-     start_music();
- }
-@@ static void show_game(void)
-     game_reset(&game);
-     paused = 0;
-+    new_high_score = 0;
-     shown_score = -1;
+**Goal:** Display the loaded or newly earned record on the title.
+
+<!-- tutorial-edit: {"file":"src/main.c","op":"diff-region","function":"show_title","context":3} -->
+**`src\main.c` — in `show_title`, apply these changes:**
+
+```c
+    bgSetGfxPtr(1, 0x2000);
+    bgSetMapPtr(1, 0x7400, SC_32x32);
+    bgSetEnable(1);
+    format_score(high_score_text + 11, high_score); // [!code ++]
+    consoleDrawText(9, 18, high_score_text); // [!code ++]
+    consoleDrawText(10, 22, "PRESS START");
+    start_music();
+}
+```
+
+Formatting at offset 11 changes the numeric suffix while retaining `HIGH SCORE`.
+
+**Goal:** Clear the new-record announcement when a fresh game begins.
+
+<!-- tutorial-edit: {"file":"src/main.c","op":"diff-region","function":"show_game","context":3} -->
+**`src\main.c` — in `show_game`, apply these changes:**
+
+```c
+    bgSetEnable(1);
+    game_reset(&game);
+    paused = 0;
+    new_high_score = 0; // [!code ++]
+    shown_score = -1;
+    shown_lives = -1;
+    shown_state = -1;
 ```
 
 `high_score_text + 11` points at the `000` part of the text.
@@ -1343,33 +1879,49 @@ Show the record on the title, and reset the message for each new game:
 Call `record_score` after the sounds in `update_game`, and load the save at
 boot, before the title is drawn:
 
-```diff
---- a/src/main.c
-+++ b/src/main.c
-@@ static void update_game(u16 held, u16 pressed)
-             mosaic_timer = MOSAIC_FRAMES;
-         play_sounds(old_state);
-+        record_score(old_state);
-     }
- 
-     draw_sprites();
-@@ int main(void)
-     spcSetBank(&SOUNDBANK__);
- 
-     init_video();
-+    load_high_score();
-     show_title();
+**Goal:** Evaluate a possible record after each active gameplay tick.
+
+<!-- tutorial-edit: {"file":"src/main.c","op":"diff-region","function":"update_game","context":3} -->
+**`src\main.c` — in `update_game`, apply these changes:**
+
+```c
+            mosaic_timer = MOSAIC_FRAMES;
+        }
+        play_sounds(old_state);
+        record_score(old_state); // [!code ++]
+    }
+
+    draw_sprites();
 ```
+
+`record_score` uses the pre-tick state to detect the single frame when play ends.
+
+**Goal:** Load the saved record before drawing the initial title.
+
+<!-- tutorial-edit: {"file":"src/main.c","op":"diff-region","function":"main","context":3} -->
+**`src\main.c` — in `main`, apply these changes:**
+
+```c
+    spcSetBank(&SOUNDBANK__);
+
+    init_video();
+    load_high_score(); // [!code ++]
+    show_title();
+    brightness = 0;
+    fade_step = 1;
+```
+
+Loading before `show_title` ensures the first title uses validated SRAM data.
+
+Emulators keep save RAM in a file, usually with the extension `.srm`. Most
+write it when you close the game or the emulator. To reset the high score,
+delete that file while the game is closed.
 
 **Checkpoint:** Run `make clean`, then `make`, then run the game. The title
 shows `HIGH SCORE 000`. Score some points and lose all your lives: `NEW HIGH
 SCORE!` appears under `GAME OVER`. Continue: the title shows your score. Close
 the emulator completely and open the ROM again: the high score is still there.
 Play a worse game: no `NEW HIGH SCORE!`, and the record stays.
-
-Emulators keep save RAM in a file, usually with the extension `.srm`. Most
-write it when you close the game or the emulator. To reset the high score,
-delete that file while the game is closed.
 
 ![Part 3 after section 8: the title shows the saved high score](screenshots/part3-section8-high-score.png)
 
@@ -1383,8 +1935,8 @@ The SNES Mouse plugs into a controller port, usually port 2 so a controller
 can stay in port 1. It does not report a position. Each frame it reports how
 far it moved since the last frame, plus its two buttons.
 
-Call `initMouse(sensitivity)` once. PVSnesLib then reads the mouse every frame
-and fills these arrays, one entry per port:
+Enable mouse reading once at startup. PVSnesLib then reads the mouse every
+frame and fills these arrays, one entry per port:
 
 | Array | Meaning |
 |---|---|
@@ -1398,174 +1950,336 @@ button launches (like B) and the right button pauses (like Start).
 
 ### Move the paddle by any amount
 
+---
+
+### Open `src\game.h`
+
 The D-pad moves the paddle by a fixed `PADDLE_SPEED`, but the mouse can move it
 by any amount. That clamp to the walls belongs in the game logic. In
 `src\game.h`, declare a new function:
 
-```diff
---- a/src/game.h
-+++ b/src/game.h
-@@
- void game_reset(Game *game);
-+void game_move_paddle(Game *game, int dx);
- void game_tick(Game *game, int movement, int action_pressed);
+**Goal:** Expose paddle movement by an arbitrary signed pixel distance.
+
+<!-- tutorial-edit: {"file":"src/game.h","op":"diff-region","context":3} -->
+**`src\game.h` — in the file, apply these changes:**
+
+```c
+} Game;
+
+void game_reset(Game *game);
+void game_move_paddle(Game *game, int dx); // [!code ++]
+void game_tick(Game *game, int movement, int action_pressed);
+
+#endif
 ```
+
+The new interface lets mouse input reuse the same wall limits as controller input.
+
+---
+
+### Open `src\game.c`
 
 In `src\game.c`, move the paddle code from `game_tick` into it:
 
-```diff
---- a/src/game.c
-+++ b/src/game.c
-@@
-     }
- }
- 
-+void game_move_paddle(Game *game, int dx)
-+{
-+    if (game->state == STATE_GAME_OVER || game->state == STATE_WON)
-+        return;
-+    game->paddle_x += dx;
-+    if (game->paddle_x < FIELD_LEFT)
-+        game->paddle_x = FIELD_LEFT;
-+    if (game->paddle_x + PADDLE_WIDTH > FIELD_RIGHT)
-+        game->paddle_x = FIELD_RIGHT - PADDLE_WIDTH;
-+}
-+
- void game_tick(Game *game, int movement, int action_pressed)
- {
-     int step;
-@@ void game_tick(Game *game, int movement, int action_pressed)
-         return;
-     }
- 
--    game->paddle_x += movement * PADDLE_SPEED;
--    if (game->paddle_x < FIELD_LEFT)
--        game->paddle_x = FIELD_LEFT;
--    if (game->paddle_x + PADDLE_WIDTH > FIELD_RIGHT)
--        game->paddle_x = FIELD_RIGHT - PADDLE_WIDTH;
-+    game_move_paddle(game, movement * PADDLE_SPEED);
- 
-     if (game->state == STATE_READY) {
+**Goal:** Move and clamp the paddle consistently for either input device.
+
+<!-- tutorial-edit: {"file":"src/game.c","op":"add-function","name":"game_move_paddle","before":"game_tick"} -->
+**`src\game.c` — add this complete `game_move_paddle` function immediately before `game_tick`:**
+
+```c
+void game_move_paddle(Game *game, int dx) // [!code ++]
+{ // [!code ++]
+    if (game->state == STATE_GAME_OVER || game->state == STATE_WON) // [!code ++]
+    { // [!code ++]
+        return; // [!code ++]
+    } // [!code ++]
+    game->paddle_x += dx; // [!code ++]
+    if (game->paddle_x < FIELD_LEFT) // [!code ++]
+    { // [!code ++]
+        game->paddle_x = FIELD_LEFT; // [!code ++]
+    } // [!code ++]
+    if (game->paddle_x + PADDLE_WIDTH > FIELD_RIGHT) // [!code ++]
+    { // [!code ++]
+        game->paddle_x = FIELD_RIGHT - PADDLE_WIDTH; // [!code ++]
+    } // [!code ++]
+} // [!code ++]
 ```
 
-Add it right after `lose_life`, above `game_tick`.
+The helper applies a signed distance, clamps both edges, and ignores movement after a game over or win.
+
+**Goal:** Route D-pad movement through the same helper used by the mouse.
+
+<!-- tutorial-edit: {"file":"src/game.c","op":"diff-region","function":"game_tick","context":3} -->
+**`src\game.c` — in `game_tick`, apply these changes:**
+
+```c
+        return;
+    }
+
+    game->paddle_x += movement * PADDLE_SPEED; // [!code --]
+    game_move_paddle(game, movement * PADDLE_SPEED); // [!code ++]
+    if (game->paddle_x < FIELD_LEFT) // [!code --]
+    { // [!code --]
+        game->paddle_x = FIELD_LEFT; // [!code --]
+    } // [!code --]
+    if (game->paddle_x + PADDLE_WIDTH > FIELD_RIGHT) // [!code --]
+    { // [!code --]
+        game->paddle_x = FIELD_RIGHT - PADDLE_WIDTH; // [!code --]
+    } // [!code --]
+
+    if (game->state == STATE_READY)
+    {
+```
+
+The tick still converts controller direction into `PADDLE_SPEED` pixels; only
+the shared movement and clamping code has moved.
 
 ### Read the mouse
 
+---
+
+### Open `src\main.c`
+
 In `src\main.c`, add three variables:
 
-```diff
---- a/src/main.c
-+++ b/src/main.c
-@@
- static unsigned int high_score;
- static int new_high_score;
-+static int mouse_port;
-+static int mouse_dx;
-+static int shown_mouse;
+**Goal:** Track the connected mouse port, frame movement, and displayed connection prompt.
+
+<!-- tutorial-edit: {"file":"src/main.c","op":"diff-region","scope_before":"prepare_bricks","context":3} -->
+**`src\main.c` — in file-scope declarations before `prepare_bricks`, apply these changes:**
+
+```c
+static SaveData save;
+static unsigned int high_score;
+static int new_high_score;
+static int mouse_port; // [!code ++]
+static int mouse_dx; // [!code ++]
+static int shown_mouse; // [!code ++]
+
 ```
+
+The port can be -1 when absent; the signed delta represents this frame's movement.
 
 Add `read_mouse` above `update_title`. It uses the first port with a mouse,
 turns the movement into a signed number, and adds the buttons to `pressed`.
 Then make the title mention the mouse when one is connected, and accept B
 (the left button) as well as Start:
 
-```diff
---- a/src/main.c
-+++ b/src/main.c
-@@
-     }
- }
- 
-+static void read_mouse(u16 *pressed)
-+{
-+    mouse_dx = 0;
-+    if (mouseConnect[0])
-+        mouse_port = 0;
-+    else if (mouseConnect[1])
-+        mouse_port = 1;
-+    else {
-+        mouse_port = -1;
-+        return;
-+    }
-+
-+    /* Bit 7 is the direction (1 = left) and bits 0-6 are the distance. */
-+    mouse_dx = mouse_x[mouse_port] & 0x7F;
-+    if (mouse_x[mouse_port] & 0x80)
-+        mouse_dx = -mouse_dx;
-+    if (mouseButton[mouse_port] & mouse_L)
-+        *pressed |= KEY_B;
-+    if (mouseButton[mouse_port] & mouse_R)
-+        *pressed |= KEY_START;
-+}
-+
- static void update_title(u16 pressed)
- {
--    if (pressed & KEY_START)
-+    int connected;
-+
-+    connected = mouse_port >= 0;
-+    if (shown_mouse != connected) {
-+        if (connected)
-+            consoleDrawText(7, 24, "OR CLICK THE MOUSE");
-+        else
-+            consoleDrawText(7, 24, "                  ");
-+        shown_mouse = connected;
-+    }
-+
-+    if (pressed & (KEY_B | KEY_START))
-         fade_to(SCREEN_GAME);
- }
+**Goal:** Decode mouse movement and translate its buttons into existing game actions.
+
+<!-- tutorial-edit: {"file":"src/main.c","op":"add-function","name":"read_mouse","before":"update_title"} -->
+**`src\main.c` — add this complete `read_mouse` function immediately before `update_title`:**
+
+```c
+static void read_mouse(u16 *pressed) // [!code ++]
+{ // [!code ++]
+    mouse_dx = 0; // [!code ++]
+    if (mouseConnect[0]) // [!code ++]
+    { // [!code ++]
+        mouse_port = 0; // [!code ++]
+    } // [!code ++]
+    else if (mouseConnect[1]) // [!code ++]
+    { // [!code ++]
+        mouse_port = 1; // [!code ++]
+    } // [!code ++]
+    else // [!code ++]
+    { // [!code ++]
+        mouse_port = -1; // [!code ++]
+        return; // [!code ++]
+    } // [!code ++]
+ // [!code ++]
+    /* Bit 7 is the direction (1 = left) and bits 0-6 are the distance. */ // [!code ++]
+    mouse_dx = mouse_x[mouse_port] & 0x7F; // [!code ++]
+    if (mouse_x[mouse_port] & 0x80) // [!code ++]
+    { // [!code ++]
+        mouse_dx = -mouse_dx; // [!code ++]
+    } // [!code ++]
+    if (mouseButton[mouse_port] & mouse_L) // [!code ++]
+    { // [!code ++]
+        *pressed |= KEY_B; // [!code ++]
+    } // [!code ++]
+    if (mouseButton[mouse_port] & mouse_R) // [!code ++]
+    { // [!code ++]
+        *pressed |= KEY_START; // [!code ++]
+    } // [!code ++]
+} // [!code ++]
 ```
+
+The reader chooses the first connected port, decodes sign-and-magnitude X motion,
+and merges new left/right clicks into B/Start presses.
+
+**Goal:** Show the mouse prompt only when connected and allow a click to start.
+
+<!-- tutorial-edit: {"file":"src/main.c","op":"diff-region","function":"update_title","context":3} -->
+**`src\main.c` — in `update_title`, apply these changes:**
+
+```c
+static void update_title(u16 pressed)
+{
+    if (pressed & KEY_START) // [!code --]
+    int connected; // [!code ++]
+ // [!code ++]
+    connected = mouse_port >= 0; // [!code ++]
+    if (shown_mouse != connected) // [!code ++]
+    { // [!code ++]
+        if (connected) // [!code ++]
+        { // [!code ++]
+            consoleDrawText(7, 24, "OR CLICK THE MOUSE"); // [!code ++]
+        } // [!code ++]
+        else // [!code ++]
+        { // [!code ++]
+            consoleDrawText(7, 24, "                  "); // [!code ++]
+        } // [!code ++]
+        shown_mouse = connected; // [!code ++]
+    } // [!code ++]
+ // [!code ++]
+    if (pressed & (KEY_B | KEY_START)) // [!code ++]
+    {
+        fade_to(SCREEN_GAME);
+    }
+```
+
+The connection cache avoids rewriting the prompt every frame; both B and Start
+now request the gameplay fade.
 
 Make `show_title` redraw that line:
 
-```diff
---- a/src/main.c
-+++ b/src/main.c
-@@ static void show_title(void)
-     consoleDrawText(10, 22, "PRESS START");
-+    shown_mouse = -1;
-     start_music();
- }
+**Goal:** Force the connection prompt to refresh whenever the title reappears.
+
+<!-- tutorial-edit: {"file":"src/main.c","op":"diff-region","function":"show_title","context":3} -->
+**`src\main.c` — in `show_title`, apply these changes:**
+
+```c
+    format_score(high_score_text + 11, high_score);
+    consoleDrawText(9, 18, high_score_text);
+    consoleDrawText(10, 22, "PRESS START");
+    shown_mouse = -1; // [!code ++]
+    start_music();
+}
 ```
+
+Setting the cache to -1 forces the first title update to reflect the current device.
 
 Move the paddle by the mouse before the normal game tick:
 
-```diff
---- a/src/main.c
-+++ b/src/main.c
-@@ static void update_game(u16 held, u16 pressed)
- 
-     if (!paused) {
-+        game_move_paddle(&game, mouse_dx);
-         movement = 0;
+**Goal:** Apply the mouse's pixel delta before the controller-driven tick.
+
+<!-- tutorial-edit: {"file":"src/main.c","op":"diff-region","function":"update_game","context":3} -->
+**`src\main.c` — in `update_game`, apply these changes:**
+
+```c
+
+    if (!paused)
+    {
+        game_move_paddle(&game, mouse_dx); // [!code ++]
+        movement = 0;
+        if (held & KEY_LEFT)
+        {
+```
+
+Both inputs use `game_move_paddle`, so their movement shares the same bounds
+and remains inside the unpaused update block.
+
+### Work around mouse initialization in PVSnesLib 4.6.0
+
+In **PVSnesLib 4.6.0**, `initMouse` uses the wrong return instruction
+([SDK source](https://github.com/alekmaul/pvsneslib/blob/4.6.0/pvsneslib/source/input.asm#L362)).
+It returns with `RTS`, but a call from C needs `RTL`. This can crash before
+the title appears; adding code later can expose the problem even if it
+seems to work now.
+
+Use this small C initializer instead. It sets the SDK's public mouse
+variables and enables its normal per-frame polling, without changing your
+SDK. **Later PVSnesLib versions may fix this bug**; check your version before
+switching back to `initMouse`.
+
+**Goal:** Initialize both mouse ports without calling the broken SDK routine.
+
+<!-- tutorial-edit: {"file":"src/main.c","op":"diff-region","context":3} -->
+**`src\main.c` — apply this insertion of `init_mouse` immediately before `main`:**
+
+```c
+    draw_text();
+}
+
+static void init_mouse(void) // [!code ++]
+{ // [!code ++]
+    int port; // [!code ++]
+ // [!code ++]
+    /* Avoid PVSnesLib 4.6.0 initMouse's incorrect RTS return. */ // [!code ++]
+    for (port = 0; port < 2; ++port) // [!code ++]
+    { // [!code ++]
+        mouseConnect[port] = 0; // [!code ++]
+        mouseButton[port] = 0; // [!code ++]
+        mousePressed[port] = 0; // [!code ++]
+        mousePreviousPressed[port] = 0; // [!code ++]
+        mouse_x[port] = 0; // [!code ++]
+        mouse_y[port] = 0; // [!code ++]
+        mouseRequestChangeSensitivity[port] = 0; // [!code ++]
+        mouseSensitivity[port] = MOUSE_SLOW; // [!code ++]
+    } // [!code ++]
+    snes_mouse = 1; // [!code ++]
+} // [!code ++]
+ // [!code ++]
+int main(void)
+{
+    u16 held;
 ```
 
 Finally, turn the mouse on at boot, read it each frame after the controller,
 and ignore its movement during fades too:
 
-```diff
---- a/src/main.c
-+++ b/src/main.c
-@@ int main(void)
-     init_video();
-+    initMouse(MOUSE_SLOW);
-     load_high_score();
-     show_title();
-@@ int main(void)
-         held = padsCurrent(0);
-         pressed = padsDown(0);
-+        read_mouse(&pressed);
-         if (fade_step != 0) {
-             held = 0;
-             pressed = 0;
-+            mouse_dx = 0;
-         }
+**Goal:** Enable the SDK's per-frame mouse polling at boot.
+
+<!-- tutorial-edit: {"file":"src/main.c","op":"diff-region","function":"main","context":3} -->
+**`src\main.c` — in `main`, apply these changes:**
+
+```c
+    spcSetBank(&SOUNDBANK__);
+
+    init_video();
+    init_mouse(); // [!code ++]
+    load_high_score();
+    show_title();
+    brightness = 0;
+```
+
+The slow sensitivity setting provides the smallest movement increments.
+
+**Goal:** Merge mouse clicks with controller presses each frame.
+
+<!-- tutorial-edit: {"file":"src/main.c","op":"diff-region","function":"main","context":3} -->
+**`src\main.c` — in `main`, apply these changes:**
+
+```c
+    {
+        held = padsCurrent(0);
+        pressed = padsDown(0);
+        read_mouse(&pressed); // [!code ++]
+        if (fade_step != 0)
+        {
+            held = 0;
+```
+
+Reading after the controller preserves both devices' newly pressed actions.
+
+**Goal:** Suppress mouse motion during fades along with controller input.
+
+<!-- tutorial-edit: {"file":"src/main.c","op":"diff-region","function":"main","context":3} -->
+**`src\main.c` — in `main`, apply these changes:**
+
+```c
+        {
+            held = 0;
+            pressed = 0;
+            mouse_dx = 0; // [!code ++]
+        }
+        update_fade();
+        if (screen == SCREEN_TITLE)
 ```
 
 `MOUSE_SLOW` is the mouse's lowest sensitivity, which gives the finest
-control. Try `MOUSE_MEDIUM` or `MOUSE_FAST` if the paddle feels too slow.
+control. If the paddle feels too slow, change the assignment to
+`mouseSensitivity[port]` in `init_mouse` to `MOUSE_MEDIUM` or `MOUSE_FAST`.
 
 ### Connect a mouse in your emulator
 
@@ -1587,88 +2301,8 @@ right-click to pause and resume. The D-pad still works too.
 
 ![Part 3 after section 9: the title with a mouse connected](screenshots/part3-section9-mouse.png)
 
-If you set up the gameplay tests, add a test for the new function to
-`tests\test_game.c`:
-
-```diff
---- a/tests/test_game.c
-+++ b/tests/test_game.c
-@@
-     assert(game.bricks_left == BRICK_COUNT);
- }
- 
-+static void test_mouse_paddle(void)
-+{
-+    Game game;
-+
-+    game_reset(&game);
-+    game_move_paddle(&game, 10);
-+    assert(game.paddle_x == 114);
-+    game_move_paddle(&game, -127);
-+    assert(game.paddle_x == FIELD_LEFT);
-+    game_move_paddle(&game, 127);
-+    game_move_paddle(&game, 127);
-+    assert(game.paddle_x == FIELD_RIGHT - PADDLE_WIDTH);
-+
-+    game.state = STATE_GAME_OVER;
-+    game_move_paddle(&game, -20);
-+    assert(game.paddle_x == FIELD_RIGHT - PADDLE_WIDTH);
-+}
-+
- int main(void)
- {
-@@ int main(void)
-     test_win();
--    puts("PASS: 8 gameplay test groups");
-+    test_mouse_paddle();
-+    puts("PASS: 9 gameplay test groups");
-     return 0;
- }
-```
-
----
-
-## 10. Test the finished game
-
-Your project folder has the same files as at the end of
-[Part 2](README-part2.md#8-test-the-finished-game). Your emulator may also
-create a save file for the high score. For a clean rebuild:
-
-```sh
-make clean
-make
-```
-
-First delete your emulator's save file for `breakout`, so the high score starts
-at 0. Then test in this order:
-
-1. At power-on: the title fades in over the sky gradient, with the FAKEOUT logo,
-   `HIGH SCORE 000`, `PRESS START`, and music. No walls, bricks, or sprites.
-2. Start: the title fades out and the game fades in with all 70 bricks, score
-   `000`, and lives `3`. Buttons do nothing during the fade.
-3. The paddle moves to both walls, launches with B or Start, and shines on
-   paddle hits. All Part 2 sounds still play.
-4. During play, Start: the ball and music stop, the playfield dims, and
-   `PAUSED` appears. Start again: everything continues from the same place.
-5. Miss the ball: strings, a mosaic swells and clears, one life is lost.
-6. Lose the last life: mosaic, `GAME OVER`, and `NEW HIGH SCORE!`.
-7. B or Start: the screen fades to the title, which shows your score as the
-   high score.
-8. Close the emulator and open the ROM again: the high score is still there.
-9. Play a lower-scoring game: no `NEW HIGH SCORE!`, and the record stays.
-10. Connect a mouse to port 2: `OR CLICK THE MOUSE` appears on the title. Left
-    click starts and launches, the mouse steers, and right click pauses.
-11. Clear the wall: tada, `YOU WIN!`, score `700`, and a new high score of
-    `700`.
-
-Only **now**, if you want to compare your work, open the finished reference
-[main.c](part3/src/main.c), [game.h](part3/src/game.h),
-[game.c](part3/src/game.c), and [Makefile](part3/Makefile).
-
-Emulator testing is not proof of correct behavior on a physical SNES. Test with
-accurate emulators and real hardware before publishing a game.
-
-## Troubleshooting
+<details class="troubleshooting">
+<summary><h2 id="troubleshooting">Troubleshooting</h2></summary>
 
 | Symptom | Check |
 |---|---|
@@ -1678,6 +2312,7 @@ accurate emulators and real hardware before publishing a game.
 | Old text left on the title or game screen | Check `clear_text` clears row 1 and every even row from 8 to 24. |
 | Screen stays black (sections 2 and 3) | In `main`, call `show_title()` and then `setScreenOn()` after `init_video()`. Section 2 removes `setScreenOn` from `init_video`. |
 | Screen stays black (section 4 onward) | Call `update_fade` every frame and `setBrightness(brightness)` right after `WaitForVBlank`. Set `brightness = 0` and `fade_step = 1` in `main`. |
+| Black screen after adding mouse support with PVSnesLib 4.6.0 | Use [the `init_mouse` workaround](#work-around-mouse-initialization-in-pvsneslib-460), not the SDK's `initMouse`. |
 | A game starts immediately after returning to the title | Zero `held` and `pressed` while `fade_step` is not 0, and set `pressed = 0` after `fade_to(SCREEN_TITLE)`. |
 | No gradient | Call `init_gradient` after `setMode`. Check each entry is 5 bytes and the table ends with a 0. |
 | Gradient shows garbage colors or stripes | `gradient_table` must be a global or `static` array, not a local variable. |
@@ -1688,37 +2323,11 @@ accurate emulators and real hardware before publishing a game.
 | The paddle or ball keeps glimmering while paused | Set `game.hits = 0` in `set_paused`. |
 | High score lost after closing the emulator | Put `CARTRIDGETYPE` and `SRAMSIZE` **before** the `include` line, then run `make clean` and `make`. Close the game normally so the emulator writes its save file. |
 | High score shows strange digits | `load_high_score` must check `SAVE_MAGIC` and the check value before trusting the save. |
-| Title never mentions the mouse | Set port 2 to SNES Mouse in your emulator, and call `initMouse` in `main`. |
+| Title never mentions the mouse | Set port 2 to SNES Mouse in your emulator, and call `init_mouse` in `main`. |
 | Mouse moves the paddle the wrong way | Bit 7 of `mouse_x` means **left**: negate the distance when it is set. |
 | Other problems | See the [Part 2 troubleshooting table](README-part2.md#troubleshooting). |
 
-## Running the gameplay tests
-
-If you added the test in section 9, run exactly the commands from
-[Running the gameplay tests](README.md#running-the-gameplay-tests) in Part 1.
-You can also copy [part3/tests/test_game.c](part3/tests/test_game.c) from your
-copy of this repository over your project's `tests\test_game.c`. The expected
-output is now:
-
-```text
-PASS: 9 gameplay test groups
-```
-
-The new test checks that `game_move_paddle` moves the paddle by any amount,
-stops at both walls, and does nothing after the game ends. The tests do not
-cover screens, effects, saving, or the mouse hardware; the emulator checkpoints
-do.
-
-## Licensing
-
-[THIRD_PARTY_NOTICES.txt](THIRD_PARTY_NOTICES.txt) preserves the PVSnesLib
-notice for the library code and font linked into the ROM. Part 3 reuses the
-Part 2 artwork, which is original to this tutorial. No project-wide license has
-been selected for the tutorial, source, or artwork.
-
-The music and effects modules come from the PVSnesLib SDK's sound example. The
-finished ROM in [part3/breakout.sfc](part3/breakout.sfc) contains them. Check
-their terms before you distribute a ROM that contains them.
+</details>
 
 ## Official references
 
@@ -1751,3 +2360,6 @@ The links are pinned to PVSnesLib 4.6.0; the same headers are in
 [ex-transparency]: https://github.com/alekmaul/pvsneslib/tree/4.6.0/snes-examples/graphics/Effects/Transparency
 [ex-sram]: https://github.com/alekmaul/pvsneslib/tree/4.6.0/snes-examples/systems/sram/sramsimple
 [ex-mouse]: https://github.com/alekmaul/pvsneslib/tree/4.6.0/snes-examples/input/mouse
+
+**Previous:** [Part 2 — backgrounds, dynamic sprites, and sound](README-part2.md)
+· **Next:** [Part 4 — scrolling, levels, and power-ups](README-part4.md)

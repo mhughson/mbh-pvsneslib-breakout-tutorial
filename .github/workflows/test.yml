@@ -32,3 +32,18 @@ jobs:
             part3/tests/test_game.c part3/src/game.c -o build/test_game_part3
       - name: Run Part 3 gameplay tests
         run: ./build/test_game_part3
+      - name: Compile Part 4 gameplay tests
+        run: |
+          cc -std=c89 -pedantic -Wall -Wextra -Werror -Ipart4/src \
+            part4/tests/test_game.c part4/src/game.c -o build/test_game_part4
+      - name: Run Part 4 gameplay tests
+        run: ./build/test_game_part4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+      - name: Test tutorial tooling
+        run: python -m unittest discover -s tools/tests
+      - name: Check tutorial media and links
+        run: python tools/verify_media.py --checkpoints
+      - name: Replay every tutorial checkpoint
+        run: python tools/verify_tutorials.py --output build/tutorial-replay --gcc cc
